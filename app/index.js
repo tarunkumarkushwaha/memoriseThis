@@ -6,10 +6,8 @@ import {
   TouchableOpacity
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { DataContext } from "./_layout";
 
 export default function HomeScreen() {
-  const { dark } = useContext(DataContext);
 
   const navigation = useNavigation();
 

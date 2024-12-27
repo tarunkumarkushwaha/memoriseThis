@@ -34,15 +34,15 @@ export default function App() {
     const resetGame = () => {
         if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
-            timeoutRef.current = null; 
-          }
-        handleColorPress("orange")
+            timeoutRef.current = null;
+        }
+        // handleColorPress("orange")
         setGameSequence([]);
         setUserSequence([]);
         setLevel(0);
         setGameStarted(false);
         setActiveColor(null);
-        animation.stopAnimation(); 
+        animation.stopAnimation();
         animation.setValue(1);
     };
 
@@ -62,14 +62,14 @@ export default function App() {
 
             if (newSequence[newSequence.length - 1] !== gameSequence[newSequence.length - 1]) {
                 playSound(require('../assets/music/gameover.mp3'));
-                Alert.alert('Game Over');
+                Alert.alert('Game Over',"try again");
                 setGameStarted(false);
                 return prevSequence;
             }
 
             if (newSequence.length === gameSequence.length) {
                 playSound(require('../assets/music/next.mp3'));
-                timeoutRef.current = setTimeout(nextRound, 1000); 
+                timeoutRef.current = setTimeout(nextRound, 1000);
             }
 
             return newSequence;
@@ -81,12 +81,12 @@ export default function App() {
         Animated.sequence([
             Animated.timing(animation, {
                 toValue: 1.2,
-                duration: 200,
+                duration: 100,
                 useNativeDriver: false,
             }),
             Animated.timing(animation, {
                 toValue: 1,
-                duration: 200,
+                duration: 100,
                 useNativeDriver: false,
             }),
         ]).start(() => setActiveColor(null));
@@ -107,67 +107,75 @@ export default function App() {
 
     return (
         <View style={styles.container}>
-            {gameStarted ? (
-                <>
-                    <TouchableOpacity style={styles.startButton} onPress={() => navigation.navigate("index")}>
-                        <Text style={styles.startButtonText}>Back to Menu</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.resetButton} onPress={resetGame}>
-                        <Text style={styles.resetButtonText}>Reset Game</Text>
-                    </TouchableOpacity>
+            {!gameStarted ?
+                (<>
+                    <Image
+                        source={require('../assets/images/color.png')}
+                        style={styles.backgroundImage}
+                        resizeMode="cover"
+                    />
+                    <View style={styles.container2}>
+                        <TouchableOpacity style={styles.resetButton} onPress={() => {
+                            if (gameStarted) {
+                                resetGame();
+                            }
+                            navigation.navigate("gamelist");
+                        }}>
+                            <Text style={styles.startButtonText}>Back to Menu</Text>
+                        </TouchableOpacity>
 
-                    <View style={styles.board}>
-                        {colors.map((color) => (
-                            <TouchableOpacity
-                                key={color}
-                                style={[
-                                    styles.button,
-                                    styles[color],
-                                    activeColor === color && styles.activeButton,
-                                ]}
-                                onPress={() => handleColorPress(color)}
-                            >
-                                <Animated.View
-                                    style={{ transform: [{ scale: activeColor === color ? animation : 1 }] }}
-                                />
-                            </TouchableOpacity>
-                        ))}
-
-                        <View style={styles.levelBox}>
-                            <Text style={styles.levelText}>Level {level}</Text>
+                        <View style={styles.rulesContainer}>
+                            <Text style={styles.rulesTitle}>Game Rules:</Text>
+                            <Text style={styles.rulesText}>1. Watch the sequence of lights carefully.</Text>
+                            <Text style={styles.rulesText}>2. Repeat the sequence by tapping the buttons in the same order.</Text>
+                            <Text style={styles.rulesText}>3. The sequence gets longer after each round.</Text>
+                            <Text style={styles.rulesText}>4. If you tap the wrong button, the game is over!</Text>
                         </View>
-                    </View>
 
+                        <TouchableOpacity style={styles.startButton} onPress={startGame}>
+                            <Text style={styles.startButtonText}>Start Game</Text>
+                        </TouchableOpacity>
+                    </View>
                 </>
-            ) : (<>
-                <Image
-                    source={{
-                        uri: "https://cdn.pixabay.com/photo/2015/11/05/10/12/ball-1023985_960_720.png",
-                    }}
-                    style={styles.backgroundImage}
-                    resizeMode="cover"
-                />
-                <View style={styles.container2}>
+                )
+                : (
+                    <>
+                        <TouchableOpacity style={styles.startButton} onPress={() => {
+                            if (gameStarted) {
+                                resetGame();
+                            }
+                            navigation.navigate("gamelist");
+                        }}>
+                            <Text style={styles.startButtonText}>Back to Menu</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.resetButton} onPress={resetGame}>
+                            <Text style={styles.resetButtonText}>Reset Game</Text>
+                        </TouchableOpacity>
 
+                        <View style={styles.board}>
+                            {colors.map((color) => (
+                                <TouchableOpacity
+                                    key={color}
+                                    style={[
+                                        styles.button,
+                                        styles[color],
+                                        activeColor === color && styles.activeButton,
+                                    ]}
+                                    onPress={() => handleColorPress(color)}
+                                >
+                                    <Animated.View
+                                        style={{ transform: [{ scale: activeColor === color ? animation : 1 }] }}
+                                    />
+                                </TouchableOpacity>
+                            ))}
 
-                    <TouchableOpacity style={styles.startButton} onPress={() => navigation.navigate("index")}>
-                        <Text style={styles.startButtonText}>Back to Menu</Text>
-                    </TouchableOpacity>
+                            <View style={styles.levelBox}>
+                                <Text style={styles.levelText}>Level {level}</Text>
+                            </View>
+                        </View>
 
-                    <View style={styles.rulesContainer}>
-                        <Text style={styles.rulesTitle}>Game Rules:</Text>
-                        <Text style={styles.rulesText}>1. Watch the sequence of lights carefully.</Text>
-                        <Text style={styles.rulesText}>2. Repeat the sequence by tapping the buttons in the same order.</Text>
-                        <Text style={styles.rulesText}>3. The sequence gets longer after each round.</Text>
-                        <Text style={styles.rulesText}>4. If you tap the wrong button, the game is over!</Text>
-                    </View>
-
-                    <TouchableOpacity style={styles.startButton} onPress={startGame}>
-                        <Text style={styles.startButtonText}>Start Game</Text>
-                    </TouchableOpacity>
-                </View>
-            </>
-            )}
+                    </>
+                )}
         </View>
     );
 }
@@ -216,7 +224,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#FF5252',
     },
     yellow: {
-        backgroundColor: '#FFEB3B',
+        backgroundColor: '#707002',
     },
     blue: {
         backgroundColor: '#42A5F5',

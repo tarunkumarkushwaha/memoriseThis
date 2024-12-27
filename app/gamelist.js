@@ -9,11 +9,20 @@ const games = [
 export default function GameList() {
     const navigation = useNavigation();
 
+    const handleBackToHome = () => {
+        navigation.navigate('index');
+    };
+
     const renderGame = ({ item }) => (
         <TouchableOpacity
             style={styles.gameCard}
             onPress={() => navigation.navigate(item.route)}
         >
+            <Image
+                source={require('../assets/images/color.png')}
+                style={styles.gameCardImage}
+                resizeMode="cover"
+            />
             <Text style={styles.gameTitle}>{item.name}</Text>
             <Text style={styles.gameDescription}>{item.description}</Text>
         </TouchableOpacity>
@@ -22,9 +31,7 @@ export default function GameList() {
     return (
         <View style={styles.container}>
             <Image
-                source={{
-                    uri: "https://cdn.pixabay.com/photo/2016/07/07/16/46/dice-1502706_960_720.jpg",
-                }}
+                source={require('../assets/images/dice.jpg')}
                 style={styles.backgroundImage}
                 resizeMode="cover"
             />
@@ -35,6 +42,9 @@ export default function GameList() {
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.listContent}
             />
+            <TouchableOpacity style={styles.backButton} onPress={handleBackToHome}>
+                <Text style={styles.backButtonText}>Back to Home</Text>
+            </TouchableOpacity>
         </View>
     );
 }
@@ -58,8 +68,18 @@ const styles = StyleSheet.create({
     listContent: {
         paddingHorizontal: 20,
     },
+    gameCardImage: {
+        opacity:0.5,
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100px',
+        height: '100px',
+    },
     gameCard: {
-        backgroundColor: "#edd3ed",
+        backgroundColor: "#292a2e",
         borderWidth: 2,
         borderColor: 'black',
         borderStyle: 'solid',
@@ -67,16 +87,18 @@ const styles = StyleSheet.create({
         padding: 15,
         marginVertical: 10,
         elevation: 5,
-        width: "90vw",
+        width: "100%",
     },
     gameTitle: {
-        fontSize: 20,
+        fontSize: 25,
+        textAlign:"center",
         fontWeight: 'bold',
-        color: '#333',
+        color: '#ffffff',
     },
     gameDescription: {
-        fontSize: 16,
-        color: '#666',
+        fontSize: 14,
+        textAlign:"center",
+        color: '#ffffff',
         marginTop: 5,
     },
     backgroundImage: {
@@ -88,5 +110,17 @@ const styles = StyleSheet.create({
         width: "100%",
         height: "100%",
         opacity: 0.7,
+    },
+    backButton: {
+        padding: 15,
+        margin: 10,
+        backgroundColor: '#3d0532',
+        borderRadius: 10,
+        marginTop: 20,
+    },
+    backButtonText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: 'bold',
     },
 });
