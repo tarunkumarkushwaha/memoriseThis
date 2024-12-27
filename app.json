@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "gamebox",
+    "slug": "gamebox",
+    "scheme": "gamebox-scheme",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/gamebox.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/gamebox.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#171616"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/gamebox.png",
+        "backgroundColor": "#171616"
+      },
+      "package": "com.tarun_kumar_kushwaha.gamebox"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "1fd916bf-bb14-45a8-a5cd-91b0e246885d"
+      }
+    }
+  }
+}
