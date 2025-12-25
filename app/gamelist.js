@@ -4,7 +4,8 @@ import { useNavigation } from '@react-navigation/native';
 
 const games = [
     { id: '1', name: 'Memorise Game', route: 'memoriseGame', description: 'Test your memory with Simon.' ,image:require('../assets/images/color.png') },
-    { id: '2', name: 'Craco Dentist', route: 'CracoTeethGane', description: 'remove the incorrect teeth.' ,image:require('../assets/images/craco.png') },
+    { id: '2', name: 'Rock Paper And Scissors', route: 'RockPaperScissors', description: 'RockPaperScissors.' ,image:require('../assets/images/color.png') },
+    // { id: '2', name: 'Craco Dentist', route: 'CracoTeethGane', description: 'remove the incorrect teeth.' ,image:require('../assets/images/craco.png') },
 ];
 
 export default function GameList() {
