@@ -3,7 +3,8 @@ import { StyleSheet, Text, View, FlatList, TouchableOpacity, Image } from 'react
 import { useNavigation } from '@react-navigation/native';
 
 const games = [
-    { id: '1', name: 'Memorise Game', route: 'memoriseGame', description: 'Test your memory with Simon.' },
+    { id: '1', name: 'Memorise Game', route: 'memoriseGame', description: 'Test your memory with Simon.' ,image:require('../assets/images/color.png') },
+    { id: '2', name: 'Craco Dentist', route: 'CracoTeethGane', description: 'remove the incorrect teeth.' ,image:require('../assets/images/craco.png') },
 ];
 
 export default function GameList() {
@@ -19,7 +20,7 @@ export default function GameList() {
             onPress={() => navigation.navigate(item.route)}
         >
             <Image
-                source={require('../assets/images/color.png')}
+                source={item.image}
                 style={styles.gameCardImage}
                 resizeMode="cover"
             />
@@ -75,27 +76,28 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        width: '100px',
-        height: '100px',
+        width: '100%',
+        height: '100%',
     },
     gameCard: {
+        overflow:"hidden",
         backgroundColor: "#292a2e",
         borderWidth: 2,
         borderColor: 'black',
         borderStyle: 'solid',
         borderRadius: 10,
-        padding: 15,
         marginVertical: 10,
-        elevation: 5,
         width: "100%",
     },
     gameTitle: {
+        padding: 10,
         fontSize: 25,
         textAlign:"center",
         fontWeight: 'bold',
         color: '#ffffff',
     },
     gameDescription: {
+        padding: 5,
         fontSize: 14,
         textAlign:"center",
         color: '#ffffff',
