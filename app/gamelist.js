@@ -25,43 +25,85 @@ const games = [
     name: "Rock Paper Scissors",
     route: "RockPaperScissors",
     description: "Classic hand game showdown against AI.",
-    image: require("../assets/images/gameboxUI.png"),
+    image: require("../assets/images/rock.png"),
   },
   {
     id: "3",
     name: "Craco Dentist",
     route: "CracoTeethGane",
-    description: "remove the incorrect teeth.",
+    description: "Remove the incorrect teeth.",
     image: require("../assets/images/mouthclosed.png"),
   },
-//   {
-//     id: "4",
-//     name: "Whak a Mole",
-//     route: "WhacAMole",
-//     description: "Wack the MoLe.",
-//     image: require("../assets/images/gamebox.png"),
-//   },
+  {
+    id: "4",
+    name: "Whack a Mole",
+    route: "WhacAMole",
+    description: "Whack the mole as fast as you can.",
+    image: require("../assets/images/mole.png"),
+  },
+  {
+    id: "5",
+    name: "Ludo",
+    route: "Ludo",
+    description: "Classic 4-player token board game.",
+    image: require("../assets/images/dice.jpg"),
+  },
+  {
+    id: "6",
+    name: "Tic Tack Toe",
+    route: "TicTacToe",
+    description: "Tic Tack Toe",
+    image: require("../assets/images/mole.png"),
+  },
 ];
 
 export default function GameList() {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
 
-  // Index mapping: 0 -> Game 1, 1 -> Game 2, ... N -> Back Button
   const [focusedIndex, setFocusedIndex] = useState(0);
 
   const isTabletOrTV = width >= 768;
   const isTV = width >= 1200;
-  const backButtonIndex = games.length;
 
-  // D-Pad Remote Navigation Handlers
+  const numColumns = isTV ? 3 : isTabletOrTV ? 3 : 2;
+  const totalItems = games.length;
+  const backButtonIndex = totalItems;
+
   const handleUp = useCallback(() => {
-    setFocusedIndex((prev) => (prev > 0 ? prev - 1 : prev));
-  }, []);
+    setFocusedIndex((prev) => {
+      if (prev === backButtonIndex) {
+        // Move from Back Button to the bottom row of grid
+        const lastRowStart = Math.floor((totalItems - 1) / numColumns) * numColumns;
+        return Math.min(lastRowStart, totalItems - 1);
+      }
+      return prev - numColumns >= 0 ? prev - numColumns : prev;
+    });
+  }, [backButtonIndex, numColumns, totalItems]);
 
   const handleDown = useCallback(() => {
-    setFocusedIndex((prev) => (prev < backButtonIndex ? prev + 1 : prev));
-  }, [backButtonIndex]);
+    setFocusedIndex((prev) => {
+      if (prev === backButtonIndex) return prev;
+      if (prev + numColumns < totalItems) {
+        return prev + numColumns;
+      }
+      return backButtonIndex;
+    });
+  }, [backButtonIndex, numColumns, totalItems]);
+
+  const handleLeft = useCallback(() => {
+    setFocusedIndex((prev) => {
+      if (prev === backButtonIndex) return prev;
+      return prev % numColumns !== 0 ? prev - 1 : prev;
+    });
+  }, [backButtonIndex, numColumns]);
+
+  const handleRight = useCallback(() => {
+    setFocusedIndex((prev) => {
+      if (prev === backButtonIndex) return prev;
+      return (prev + 1) % numColumns !== 0 && prev + 1 < totalItems ? prev + 1 : prev;
+    });
+  }, [backButtonIndex, numColumns, totalItems]);
 
   const handleSelect = useCallback(() => {
     if (focusedIndex === backButtonIndex) {
@@ -74,6 +116,8 @@ export default function GameList() {
   useControllerNav({
     onUp: handleUp,
     onDown: handleDown,
+    onLeft: handleLeft,
+    onRight: handleRight,
     onSelect: handleSelect,
   });
 
@@ -83,6 +127,8 @@ export default function GameList() {
     return (
       <TouchableOpacity
         activeOpacity={0.85}
+        focusable
+        isTVSelectable
         onFocus={() => setFocusedIndex(index)}
         onPress={() => {
           setFocusedIndex(index);
@@ -103,11 +149,13 @@ export default function GameList() {
 
         <View style={styles.cardContent}>
           <Text
+            numberOfLines={1}
             style={[styles.gameTitle, isTabletOrTV && styles.gameTitleLarge]}
           >
             {item.name}
           </Text>
           <Text
+            numberOfLines={2}
             style={[
               styles.gameDescription,
               isTabletOrTV && styles.gameDescriptionLarge,
@@ -122,7 +170,6 @@ export default function GameList() {
 
   return (
     <View style={styles.mainContainer}>
-      {/* Background Image & Overlay */}
       <Image
         source={backgroundImageAsset}
         style={styles.backgroundImage}
@@ -130,41 +177,43 @@ export default function GameList() {
       />
       <View style={styles.darkOverlay} />
 
-      {/* Main Glass Card Wrapper */}
       <View
         style={[
           styles.glassCard,
           {
-            maxWidth: isTV ? 850 : isTabletOrTV ? 650 : "92%",
-            padding: isTabletOrTV ? 32 : 20,
+            maxWidth: isTV ? 1100 : isTabletOrTV ? 850 : "94%",
+            maxHeight: isTV ? "100%" : "95%",
+            padding: isTabletOrTV ? 28 : 16,
           },
         ]}
       >
-        {/* Badge */}
         <View style={styles.logoBadge}>
           <Text style={[styles.logoText, isTabletOrTV && styles.logoTextLarge]}>
-            GAME BOX
+            GAME BOX COLLECTION
           </Text>
         </View>
 
-        <Text style={[styles.header, isTabletOrTV && styles.headerLarge]}>
+        {/* <Text style={[styles.header, isTabletOrTV && styles.headerLarge]}>
           Choose Your Game
-        </Text>
+        </Text> */}
 
-        {/* Game List */}
         <FlatList
+          key={numColumns}
           data={games}
           renderItem={renderGame}
           keyExtractor={(item) => item.id}
+          numColumns={numColumns}
           style={styles.list}
           contentContainerStyle={styles.listContent}
+          columnWrapperStyle={styles.columnWrapper}
           showsVerticalScrollIndicator={false}
         />
 
-        {/* Back Button */}
         <View style={styles.buttonGroup}>
           <TouchableOpacity
             activeOpacity={0.85}
+            focusable
+            isTVSelectable
             onFocus={() => setFocusedIndex(backButtonIndex)}
             onPress={() => {
               setFocusedIndex(backButtonIndex);
@@ -174,7 +223,7 @@ export default function GameList() {
               styles.button,
               styles.secondaryButton,
               isTabletOrTV && styles.buttonLarge,
-              focusedIndex === backButtonIndex && styles.focusedCard,
+              focusedIndex === backButtonIndex && styles.focusedButton,
             ]}
           >
             <Text
@@ -207,12 +256,11 @@ const styles = StyleSheet.create({
   },
   darkOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(6, 9, 19, 0.45)",
+    backgroundColor: "rgba(6, 9, 19, 0.55)",
   },
   glassCard: {
     width: "100%",
-    maxHeight: "88%",
-    backgroundColor: "rgba(15, 23, 42, 0.75)",
+    backgroundColor: "rgba(15, 23, 42, 0.78)",
     borderRadius: 24,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.15)",
@@ -227,33 +275,33 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(99, 102, 241, 0.2)",
     borderWidth: 1,
     borderColor: "rgba(99, 102, 241, 0.5)",
-    paddingVertical: 5,
+    paddingVertical: 4,
     paddingHorizontal: 16,
     borderRadius: 20,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   logoText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "800",
     color: "#a5b4fc",
-    letterSpacing: 3,
+    letterSpacing: 2.5,
     textTransform: "uppercase",
   },
   logoTextLarge: {
-    fontSize: 16,
-    letterSpacing: 4,
+    fontSize: 14,
+    letterSpacing: 3.5,
   },
   header: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "800",
     color: "#FFFFFF",
     textAlign: "center",
-    marginBottom: 16,
+    marginBottom: 14,
     letterSpacing: -0.5,
   },
   headerLarge: {
-    fontSize: 34,
-    marginBottom: 24,
+    fontSize: 32,
+    marginBottom: 20,
   },
   list: {
     width: "100%",
@@ -261,67 +309,74 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 8,
   },
+  columnWrapper: {
+    justifyContent: "space-between",
+    marginBottom: 14,
+    marginTop: 14,
+  },
   gameCard: {
-    width: "100%",
-    height: 100,
+    flex: 1,
+    height: 145,
+    marginHorizontal: 5,
     borderRadius: 16,
     overflow: "hidden",
-    marginBottom: 14,
-    justifyContent: "center",
-    borderWidth: 3,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(30, 41, 59, 0.6)",
+    justifyContent: "flex-end",
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(30, 41, 59, 0.7)",
   },
   gameCardLarge: {
-    height: 120,
+    height: 185,
     borderRadius: 18,
-    marginBottom: 18,
+    marginHorizontal: 8,
   },
   gameCardImage: {
     ...StyleSheet.absoluteFillObject,
     width: "100%",
     height: "100%",
-    opacity: 0.4,
+    opacity: 0.5,
   },
   cardDarkOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(15, 23, 42, 0.65)",
   },
   cardContent: {
-    paddingHorizontal: 20,
-    justifyContent: "center",
+    padding: 12,
   },
   gameTitle: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: "800",
     color: "#FFFFFF",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   gameTitleLarge: {
-    fontSize: 22,
+    fontSize: 19,
+    marginBottom: 4,
   },
   gameDescription: {
-    fontSize: 13,
+    fontSize: 11,
     color: "#94a3b8",
+    lineHeight: 15,
   },
   gameDescriptionLarge: {
-    fontSize: 15,
+    fontSize: 13,
+    lineHeight: 17,
   },
   buttonGroup: {
     width: "100%",
-    marginTop: 10,
+    marginTop: 8,
   },
   button: {
     width: "100%",
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: "transparent",
   },
   buttonLarge: {
-    paddingVertical: 18,
+    paddingVertical: 16,
     borderRadius: 16,
   },
   secondaryButton: {
@@ -329,21 +384,26 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
     letterSpacing: 0.5,
   },
   buttonTextLarge: {
-    fontSize: 18,
+    fontSize: 17,
   },
-  /* TV / Remote Dynamic Focus Style */
+
   focusedCard: {
     borderColor: "#FFFFFF",
-    transform: [{ scale: 1.02 }],
-    shadowColor: "#FFFFFF",
+    transform: [{ scale: 1.04 }],
+    shadowColor: "#6366f1",
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.9,
+    shadowRadius: 14,
+    elevation: 10,
+  },
+  focusedButton: {
+    borderColor: "#FFFFFF",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    transform: [{ scale: 1.02 }],
   },
 });
