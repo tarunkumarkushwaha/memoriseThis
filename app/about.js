@@ -11,15 +11,10 @@ import { useNavigation } from "@react-navigation/native";
 import { useControllerNav } from "../hooks/useControllerNav";
 import backgroundImageAsset from "../assets/images/gameboxUI.png";
 
-
 export default function AboutScreen() {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
-
-  // Track focused element (0: Back Button)
   const [isFocused, setIsFocused] = useState(true);
-
-  // Responsive scale factors
   const isTabletOrTV = width >= 768;
   const isTV = width >= 1200;
 
@@ -30,27 +25,22 @@ export default function AboutScreen() {
     "Regular updates with new content",
   ];
 
-  // Remote Navigation Select Handler
   const handleSelect = useCallback(() => {
     navigation.goBack();
   }, [navigation]);
 
-  // Hook up D-Pad remote events
   useControllerNav({
     onSelect: handleSelect,
   });
 
   return (
     <View style={styles.mainContainer}>
-      {/* Background Image with Tint Overlay */}
       <Image
         source={backgroundImageAsset}
         style={styles.backgroundImage}
         resizeMode="cover"
       />
       <View style={styles.darkOverlay} />
-
-      {/* Main Glass Container */}
       <View
         style={[
           styles.glassCard,
@@ -60,31 +50,30 @@ export default function AboutScreen() {
           },
         ]}
       >
-        {/* Header Badge */}
         <View style={styles.logoBadge}>
           <Text style={[styles.logoText, isTabletOrTV && styles.logoTextLarge]}>
-            GAME BOX
+            Play OTG
           </Text>
         </View>
 
-        {/* Title & Description */}
         <Text style={[styles.title, isTabletOrTV && styles.titleLarge]}>
-          About Game Box
+          About Play OTG
         </Text>
         <Text
-          style={[
-            styles.description,
-            isTabletOrTV && styles.descriptionLarge,
-          ]}
+          style={[styles.description, isTabletOrTV && styles.descriptionLarge]}
         >
-          Welcome to Game Box, your ultimate destination for fun and engaging
+          Welcome to Play OTG, your ultimate destination for fun and engaging
           games! Our app offers a curated selection of games designed to
           entertain, challenge, and inspire players of all ages.
         </Text>
 
-        {/* Features List */}
         <View style={styles.featuresContainer}>
-          <Text style={[styles.featuresTitle, isTabletOrTV && styles.featuresTitleLarge]}>
+          <Text
+            style={[
+              styles.featuresTitle,
+              isTabletOrTV && styles.featuresTitleLarge,
+            ]}
+          >
             Key Features
           </Text>
           {features.map((item, index) => (
@@ -102,7 +91,6 @@ export default function AboutScreen() {
           ))}
         </View>
 
-        {/* Action Button */}
         <View style={styles.buttonGroup}>
           <TouchableOpacity
             activeOpacity={0.85}

@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "quizotgandroid",
+    "slug": "quizotgandroid",
+    "scheme": "quizotgandroid-scheme",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/quizotgappicon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/quizotgappicon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#D3D3D3"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/quizotgappicon.png",
+        "backgroundColor": "#D3D3D3"
+      },
+      "usesCleartextTraffic": true,
+      "package": "com.tarun_kumar_kushwaha.quizotgandroid"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "1fd916bf-bb14-45a8-a5cd-91b0e246885d"
+      }
+    }
+  }
+}

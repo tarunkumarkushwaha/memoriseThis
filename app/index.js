@@ -67,7 +67,7 @@ return (
       >
         <View style={styles.logoBadge}>
           <Text style={[styles.logoText, isTabletOrTV && styles.logoTextLarge]}>
-            GAME BOX
+            Play OTG
           </Text>
         </View>
 
@@ -130,7 +130,7 @@ return (
                 isTabletOrTV && styles.buttonTextLarge,
               ]}
             >
-              About Game Box
+              About Play OTG
             </Text>
           </TouchableOpacity>
         </View>

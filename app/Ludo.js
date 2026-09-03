@@ -521,7 +521,7 @@ export default function LudoGame() {
           >
             <View style={styles.badge}>
               <Text style={[styles.badgeText, { fontSize: 11 * fontScale }]}>
-                GAME BOX SETUP
+                Play OTG SETUP
               </Text>
             </View>
 

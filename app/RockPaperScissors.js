@@ -168,7 +168,7 @@ export default function RockPaperScissors() {
           {/* Header Badge */}
           {/* <View style={styles.logoBadge}>
             <Text style={[styles.logoText, isTabletOrTV && styles.logoTextLarge]}>
-              GAME BOX
+              Play OTG
             </Text>
           </View> */}
 

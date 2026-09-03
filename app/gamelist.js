@@ -189,7 +189,7 @@ export default function GameList() {
       >
         <View style={styles.logoBadge}>
           <Text style={[styles.logoText, isTabletOrTV && styles.logoTextLarge]}>
-            GAME BOX COLLECTION
+            Play OTG COLLECTION
           </Text>
         </View>
 
