@@ -1,13 +1,19 @@
-import React, { useState, useCallback } from "react";
 import {
-  StyleSheet,
-  Text,
   View,
-  FlatList,
-  TouchableOpacity,
+  Text,
+  Pressable,
   Image,
+  ScrollView,
+  StyleSheet,
   useWindowDimensions,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  interpolateColor,
+} from "react-native-reanimated";
+import React, { useState, useCallback, useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { useControllerNav } from "../hooks/useControllerNav";
 import backgroundImageAsset from "../assets/images/gameboxUI.png";
@@ -57,6 +63,8 @@ const games = [
   },
 ];
 
+const FOCUS_SPRING = { damping: 10, stiffness: 180, mass: 0.6 };
+
 export default function GameList() {
   const navigation = useNavigation();
   const { width } = useWindowDimensions();
@@ -73,8 +81,8 @@ export default function GameList() {
   const handleUp = useCallback(() => {
     setFocusedIndex((prev) => {
       if (prev === backButtonIndex) {
-        // Move from Back Button to the bottom row of grid
-        const lastRowStart = Math.floor((totalItems - 1) / numColumns) * numColumns;
+        const lastRowStart =
+          Math.floor((totalItems - 1) / numColumns) * numColumns;
         return Math.min(lastRowStart, totalItems - 1);
       }
       return prev - numColumns >= 0 ? prev - numColumns : prev;
@@ -84,9 +92,7 @@ export default function GameList() {
   const handleDown = useCallback(() => {
     setFocusedIndex((prev) => {
       if (prev === backButtonIndex) return prev;
-      if (prev + numColumns < totalItems) {
-        return prev + numColumns;
-      }
+      if (prev + numColumns < totalItems) return prev + numColumns;
       return backButtonIndex;
     });
   }, [backButtonIndex, numColumns, totalItems]);
@@ -101,16 +107,16 @@ export default function GameList() {
   const handleRight = useCallback(() => {
     setFocusedIndex((prev) => {
       if (prev === backButtonIndex) return prev;
-      return (prev + 1) % numColumns !== 0 && prev + 1 < totalItems ? prev + 1 : prev;
+      return (prev + 1) % numColumns !== 0 && prev + 1 < totalItems
+        ? prev + 1
+        : prev;
     });
   }, [backButtonIndex, numColumns, totalItems]);
 
   const handleSelect = useCallback(() => {
-    if (focusedIndex === backButtonIndex) {
-      navigation.navigate("index");
-    } else if (games[focusedIndex]) {
+    if (focusedIndex === backButtonIndex) navigation.navigate("index");
+    else if (games[focusedIndex])
       navigation.navigate(games[focusedIndex].route);
-    }
   }, [focusedIndex, backButtonIndex, navigation]);
 
   useControllerNav({
@@ -120,53 +126,6 @@ export default function GameList() {
     onRight: handleRight,
     onSelect: handleSelect,
   });
-
-  const renderGame = ({ item, index }) => {
-    const isFocused = focusedIndex === index;
-
-    return (
-      <TouchableOpacity
-        activeOpacity={0.85}
-        focusable
-        isTVSelectable
-        onFocus={() => setFocusedIndex(index)}
-        onPress={() => {
-          setFocusedIndex(index);
-          navigation.navigate(item.route);
-        }}
-        style={[
-          styles.gameCard,
-          isTabletOrTV && styles.gameCardLarge,
-          isFocused && styles.focusedCard,
-        ]}
-      >
-        <Image
-          source={item.image}
-          style={styles.gameCardImage}
-          resizeMode="cover"
-        />
-        <View style={styles.cardDarkOverlay} />
-
-        <View style={styles.cardContent}>
-          <Text
-            numberOfLines={1}
-            style={[styles.gameTitle, isTabletOrTV && styles.gameTitleLarge]}
-          >
-            {item.name}
-          </Text>
-          <Text
-            numberOfLines={2}
-            style={[
-              styles.gameDescription,
-              isTabletOrTV && styles.gameDescriptionLarge,
-            ]}
-          >
-            {item.description}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
 
   return (
     <View style={styles.mainContainer}>
@@ -193,51 +152,150 @@ export default function GameList() {
           </Text>
         </View>
 
-        {/* <Text style={[styles.header, isTabletOrTV && styles.headerLarge]}>
-          Choose Your Game
-        </Text> */}
-
-        <FlatList
-          key={numColumns}
-          data={games}
-          renderItem={renderGame}
-          keyExtractor={(item) => item.id}
-          numColumns={numColumns}
+        <ScrollView
           style={styles.list}
           contentContainerStyle={styles.listContent}
-          columnWrapperStyle={styles.columnWrapper}
           showsVerticalScrollIndicator={false}
-        />
+        >
+          <View style={styles.grid}>
+            {games.map((item, index) => (
+              <GameCard
+                key={item.id}
+                item={item}
+                isTabletOrTV={isTabletOrTV}
+                numColumns={numColumns}
+                isFocused={focusedIndex === index}
+                onFocus={() => setFocusedIndex(index)}
+                onPress={() => navigation.navigate(item.route)}
+              />
+            ))}
+          </View>
+        </ScrollView>
 
         <View style={styles.buttonGroup}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            focusable
-            isTVSelectable
+          <BackButton
+            isTabletOrTV={isTabletOrTV}
+            isFocused={focusedIndex === backButtonIndex}
             onFocus={() => setFocusedIndex(backButtonIndex)}
-            onPress={() => {
-              setFocusedIndex(backButtonIndex);
-              navigation.navigate("index");
-            }}
-            style={[
-              styles.button,
-              styles.secondaryButton,
-              isTabletOrTV && styles.buttonLarge,
-              focusedIndex === backButtonIndex && styles.focusedButton,
-            ]}
-          >
-            <Text
-              style={[
-                styles.buttonText,
-                isTabletOrTV && styles.buttonTextLarge,
-              ]}
-            >
-              Back to Home
-            </Text>
-          </TouchableOpacity>
+            onPress={() => navigation.navigate("index")}
+          />
         </View>
       </View>
     </View>
+  );
+}
+
+function GameCard({
+  item,
+  isTabletOrTV,
+  numColumns,
+  isFocused,
+  onFocus,
+  onPress,
+}) {
+  const scale = useSharedValue(1);
+  const focusAnim = useSharedValue(0);
+
+  useEffect(() => {
+    scale.value = withSpring(isFocused ? 1.04 : 1, FOCUS_SPRING);
+    focusAnim.value = withSpring(isFocused ? 1 : 0, FOCUS_SPRING);
+  }, [isFocused]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    borderWidth: 2,
+    borderColor: interpolateColor(
+      focusAnim.value,
+      [0, 1],
+      ["transparent", "#ffffff"],
+    ),
+    shadowOpacity: focusAnim.value * 0.6,
+    shadowRadius: focusAnim.value * 16,
+    elevation: focusAnim.value * 10,
+  }));
+
+  return (
+    <Pressable
+      focusable
+      isTVSelectable
+      onFocus={onFocus}
+      onPress={onPress}
+      style={{ width: `${100 / numColumns}%`, padding: 6 }}
+    >
+      <Animated.View
+        style={[
+          styles.gameCard,
+          isTabletOrTV && styles.gameCardLarge,
+          animatedStyle,
+        ]}
+      >
+        <Image
+          source={item.image}
+          style={styles.gameCardImage}
+          resizeMode="cover"
+        />
+        <View style={styles.cardDarkOverlay} />
+        <View style={styles.cardContent}>
+          <Text
+            numberOfLines={1}
+            style={[styles.gameTitle, isTabletOrTV && styles.gameTitleLarge]}
+          >
+            {item.name}
+          </Text>
+          <Text
+            numberOfLines={2}
+            style={[
+              styles.gameDescription,
+              isTabletOrTV && styles.gameDescriptionLarge,
+            ]}
+          >
+            {item.description}
+          </Text>
+        </View>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+function BackButton({ isTabletOrTV, isFocused, onFocus, onPress }) {
+  const scale = useSharedValue(1);
+  const focusAnim = useSharedValue(0);
+
+  useEffect(() => {
+    scale.value = withSpring(isFocused ? 1.05 : 1, FOCUS_SPRING);
+    focusAnim.value = withSpring(isFocused ? 1 : 0, FOCUS_SPRING);
+  }, [isFocused]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    borderWidth: 2,
+    borderColor: interpolateColor(
+      focusAnim.value,
+      [0, 1],
+      ["transparent", "#ffffff"],
+    ),
+    shadowOpacity: focusAnim.value * 0.6,
+    shadowRadius: focusAnim.value * 14,
+    elevation: focusAnim.value * 10,
+  }));
+
+  return (
+    <Pressable focusable isTVSelectable onFocus={onFocus} onPress={onPress}>
+      <Animated.View
+        style={[
+          styles.button,
+          styles.secondaryButton,
+          isTabletOrTV && styles.buttonLarge,
+          animatedStyle,
+        ]}
+      >
+        <Text
+          style={[styles.buttonText, isTabletOrTV && styles.buttonTextLarge]}
+        >
+          Back to Home
+        </Text>
+      </Animated.View>
+    </Pressable>
   );
 }
 
@@ -309,6 +367,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 8,
   },
+  grid: { flexDirection: "row", flexWrap: "wrap", width: "100%" },
   columnWrapper: {
     justifyContent: "space-between",
     marginBottom: 14,

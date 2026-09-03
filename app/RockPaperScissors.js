@@ -1,7 +1,14 @@
-
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, Pressable, StyleSheet, Platform,Image,
-  ScrollView, useWindowDimensions } from "react-native";
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  Platform,
+  Image,
+  ScrollView,
+  useWindowDimensions,
+} from "react-native";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import Animated, {
   useSharedValue,
@@ -27,12 +34,8 @@ const VALUES = { rock: -1, paper: 0, scissors: 1 };
 const BOUNCE_SPRING = { damping: 7, stiffness: 220, mass: 0.5 };
 const FOCUS_SPRING = { damping: 10, stiffness: 180, mass: 0.6 };
 
-const WIN_SOUND_URI =
-  "https://cdn.pixabay.com/download/audio/2022/03/15/audio_b8c9103636.mp3?filename=correct-83487.mp3";
-const LOSE_SOUND_URI =
-  "https://cdn.pixabay.com/download/audio/2021/08/04/audio_c6ccf3232f.mp3?filename=negative_beeps-6008.mp3";
-
-// D-pad focus graph
+const WIN_SOUND_URI = require("../assets/music/win3.mp3");
+const LOSE_SOUND_URI = require("../assets/music/lose1.mp3");
 const FOCUS_MAP = {
   difficulty: { down: "rock" },
   rock: { up: "difficulty", right: "paper" },
@@ -59,8 +62,8 @@ export default function RockPaperScissors() {
   const isTV = Platform.isTV || width >= 1200;
   const fontScale = isTV ? 1.4 : isTabletOrTV ? 1.2 : 1;
 
-  const winPlayer = useAudioPlayer({ uri: WIN_SOUND_URI });
-  const losePlayer = useAudioPlayer({ uri: LOSE_SOUND_URI });
+  const winPlayer = useAudioPlayer(WIN_SOUND_URI);
+  const losePlayer = useAudioPlayer(LOSE_SOUND_URI);
 
   const playSound = useCallback((audioPlayer) => {
     try {
@@ -139,9 +142,21 @@ export default function RockPaperScissors() {
   const playerChoiceMeta = CHOICES.find((c) => c.id === player);
   const computerChoiceMeta = CHOICES.find((c) => c.id === computer);
   const playerStatus =
-    result === "You Win" ? "win" : result === "You Lose" ? "lose" : result ? "draw" : null;
+    result === "You Win"
+      ? "win"
+      : result === "You Lose"
+        ? "lose"
+        : result
+          ? "draw"
+          : null;
   const computerStatus =
-    result === "You Lose" ? "win" : result === "You Win" ? "lose" : result ? "draw" : null;
+    result === "You Lose"
+      ? "win"
+      : result === "You Win"
+        ? "lose"
+        : result
+          ? "draw"
+          : null;
 
   return (
     <View style={styles.mainContainer}>
@@ -185,7 +200,9 @@ export default function RockPaperScissors() {
             fontScale={fontScale}
             isFocused={focusedId === "difficulty"}
             onFocusId={setFocusedId}
-            onToggle={() => setDifficulty((d) => (d === "easy" ? "Danger" : "easy"))}
+            onToggle={() =>
+              setDifficulty((d) => (d === "easy" ? "Danger" : "easy"))
+            }
           />
 
           {/* Choices Row */}
@@ -205,7 +222,10 @@ export default function RockPaperScissors() {
 
           {/* Battle Arena Reveal */}
           {result !== "" && (
-            <Animated.View entering={FadeInDown.duration(350)} style={styles.arena}>
+            <Animated.View
+              entering={FadeInDown.duration(350)}
+              style={styles.arena}
+            >
               <View style={styles.arenaSide}>
                 <RevealIcon
                   meta={playerChoiceMeta}
@@ -218,7 +238,9 @@ export default function RockPaperScissors() {
                 </Text>
               </View>
 
-              <Text style={[styles.vsText, { fontSize: 22 * fontScale }]}>VS</Text>
+              <Text style={[styles.vsText, { fontSize: 22 * fontScale }]}>
+                VS
+              </Text>
 
               <View style={styles.arenaSide}>
                 <RevealIcon
@@ -254,9 +276,24 @@ export default function RockPaperScissors() {
 
           {/* Score Box */}
           <View style={styles.scoreBox}>
-            <ScorePill label="Win" value={score.win} color="#22c55e" fontScale={fontScale} />
-            <ScorePill label="Lose" value={score.lose} color="#ef4444" fontScale={fontScale} />
-            <ScorePill label="Draw" value={score.draw} color="#facc15" fontScale={fontScale} />
+            <ScorePill
+              label="Win"
+              value={score.win}
+              color="#22c55e"
+              fontScale={fontScale}
+            />
+            <ScorePill
+              label="Lose"
+              value={score.lose}
+              color="#ef4444"
+              fontScale={fontScale}
+            />
+            <ScorePill
+              label="Draw"
+              value={score.draw}
+              color="#facc15"
+              fontScale={fontScale}
+            />
           </View>
 
           {/* Action Buttons */}
@@ -288,7 +325,13 @@ export default function RockPaperScissors() {
 
 /* ─────────────────────────── Difficulty segmented toggle ─────────────────────────── */
 
-function DifficultyToggle({ difficulty, fontScale, isFocused, onFocusId, onToggle }) {
+function DifficultyToggle({
+  difficulty,
+  fontScale,
+  isFocused,
+  onFocusId,
+  onToggle,
+}) {
   const slide = useSharedValue(difficulty === "easy" ? 0 : 1);
   const focusAnim = useSharedValue(0);
 
@@ -306,7 +349,8 @@ function DifficultyToggle({ difficulty, fontScale, isFocused, onFocusId, onToggl
   }));
 
   const trackStyle = useAnimatedStyle(() => ({
-    borderColor: focusAnim.value > 0.05 ? "#ffffff" : "rgba(255, 255, 255, 0.1)",
+    borderColor:
+      focusAnim.value > 0.05 ? "#ffffff" : "rgba(255, 255, 255, 0.1)",
     transform: [{ scale: focusAnim.value > 0.05 ? 1.04 : 1 }],
     shadowOpacity: 0.2 + focusAnim.value * 0.6,
     elevation: 3 + focusAnim.value * 8,
@@ -323,8 +367,12 @@ function DifficultyToggle({ difficulty, fontScale, isFocused, onFocusId, onToggl
       <Animated.View style={[styles.diffTrack, trackStyle]}>
         <Animated.View style={[styles.diffPill, pillStyle]} />
         <View style={styles.diffLabelRow}>
-          <Text style={[styles.diffLabel, { fontSize: 13 * fontScale }]}>EASY</Text>
-          <Text style={[styles.diffLabel, { fontSize: 13 * fontScale }]}>DANGER</Text>
+          <Text style={[styles.diffLabel, { fontSize: 13 * fontScale }]}>
+            EASY
+          </Text>
+          <Text style={[styles.diffLabel, { fontSize: 13 * fontScale }]}>
+            DANGER
+          </Text>
         </View>
       </Animated.View>
     </Pressable>
@@ -333,7 +381,14 @@ function DifficultyToggle({ difficulty, fontScale, isFocused, onFocusId, onToggl
 
 /* ─────────────────────────── Choice card (rock / paper / scissors) ─────────────────────────── */
 
-function ChoiceCard({ choice, fontScale, isSelected, isFocused, onFocusId, onPress }) {
+function ChoiceCard({
+  choice,
+  fontScale,
+  isSelected,
+  isFocused,
+  onFocusId,
+  onPress,
+}) {
   const pressScale = useSharedValue(1);
   const focusScale = useSharedValue(1);
   const focusAnim = useSharedValue(0);
@@ -341,7 +396,7 @@ function ChoiceCard({ choice, fontScale, isSelected, isFocused, onFocusId, onPre
   const handlePress = () => {
     pressScale.value = withSequence(
       withSpring(0.85, BOUNCE_SPRING),
-      withSpring(1, BOUNCE_SPRING)
+      withSpring(1, BOUNCE_SPRING),
     );
     onPress();
   };
@@ -353,7 +408,11 @@ function ChoiceCard({ choice, fontScale, isSelected, isFocused, onFocusId, onPre
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pressScale.value * focusScale.value }],
-    borderColor: isFocused ? "#FFFFFF" : focusAnim.value > 0.05 ? choice.glow : "rgba(255, 255, 255, 0.1)",
+    borderColor: isFocused
+      ? "#FFFFFF"
+      : focusAnim.value > 0.05
+        ? choice.glow
+        : "rgba(255, 255, 255, 0.1)",
     shadowOpacity: 0.25 + focusAnim.value * 0.55,
     shadowRadius: 8 + focusAnim.value * 16,
     elevation: 4 + focusAnim.value * 10,
@@ -367,9 +426,17 @@ function ChoiceCard({ choice, fontScale, isSelected, isFocused, onFocusId, onPre
       onBlur={() => onFocusId(null)}
       onPress={handlePress}
     >
-      <Animated.View style={[styles.card, animatedStyle, { shadowColor: choice.glow }]}>
-        <FontAwesome5 name={choice.icon} size={36 * fontScale} color={choice.color} />
-        <Text style={[styles.label, { fontSize: 13 * fontScale }]}>{choice.id}</Text>
+      <Animated.View
+        style={[styles.card, animatedStyle, { shadowColor: choice.glow }]}
+      >
+        <FontAwesome5
+          name={choice.icon}
+          size={36 * fontScale}
+          color={choice.color}
+        />
+        <Text style={[styles.label, { fontSize: 13 * fontScale }]}>
+          {choice.id}
+        </Text>
       </Animated.View>
     </Pressable>
   );
@@ -389,14 +456,14 @@ function RevealIcon({ meta, status, roundKey, fontScale }) {
     if (status === "win") {
       glow.value = withSequence(
         withTiming(1, { duration: 150 }),
-        withTiming(0.6, { duration: 400 })
+        withTiming(0.6, { duration: 400 }),
       );
     } else if (status === "lose") {
       shakeX.value = withSequence(
         withTiming(10, { duration: 60 }),
         withTiming(-10, { duration: 60 }),
         withTiming(6, { duration: 60 }),
-        withTiming(0, { duration: 60 })
+        withTiming(0, { duration: 60 }),
       );
     }
   }, [roundKey]);
@@ -407,7 +474,11 @@ function RevealIcon({ meta, status, roundKey, fontScale }) {
     shadowRadius: 8 + glow.value * 22,
     elevation: 4 + glow.value * 14,
     borderColor:
-      status === "win" ? "#22c55e" : status === "lose" ? "#ef4444" : "rgba(255, 255, 255, 0.2)",
+      status === "win"
+        ? "#22c55e"
+        : status === "lose"
+          ? "#ef4444"
+          : "rgba(255, 255, 255, 0.2)",
   }));
 
   if (!meta) return null;
@@ -433,7 +504,7 @@ function ScorePill({ label, value, color, fontScale }) {
   useEffect(() => {
     scale.value = withSequence(
       withSpring(1.25, BOUNCE_SPRING),
-      withSpring(1, BOUNCE_SPRING)
+      withSpring(1, BOUNCE_SPRING),
     );
   }, [value]);
 
@@ -442,9 +513,15 @@ function ScorePill({ label, value, color, fontScale }) {
   }));
 
   return (
-    <Animated.View style={[styles.scorePill, animatedStyle, { borderColor: color }]}>
-      <Text style={[styles.scoreLabel, { color, fontSize: 10 * fontScale }]}>{label}</Text>
-      <Text style={[styles.scoreValue, { fontSize: 16 * fontScale }]}>{value}</Text>
+    <Animated.View
+      style={[styles.scorePill, animatedStyle, { borderColor: color }]}
+    >
+      <Text style={[styles.scoreLabel, { color, fontSize: 10 * fontScale }]}>
+        {label}
+      </Text>
+      <Text style={[styles.scoreValue, { fontSize: 16 * fontScale }]}>
+        {value}
+      </Text>
     </Animated.View>
   );
 }
@@ -489,17 +566,19 @@ function FocusableButton({
       <Animated.View
         style={[
           styles.actionBtn,
-          variant === "primary" ? styles.actionBtnPrimary : styles.actionBtnSecondary,
+          variant === "primary"
+            ? styles.actionBtnPrimary
+            : styles.actionBtnSecondary,
           animatedStyle,
         ]}
       >
-        <Text style={[styles.actionBtnText, { fontSize: 15 * fontScale }]}>{label}</Text>
+        <Text style={[styles.actionBtnText, { fontSize: 15 * fontScale }]}>
+          {label}
+        </Text>
       </Animated.View>
     </Pressable>
   );
 }
-
-/* ─────────────────────────── Styles ─────────────────────────── */
 
 const styles = StyleSheet.create({
   mainContainer: {
@@ -696,10 +775,10 @@ const styles = StyleSheet.create({
 
   /* Action Buttons */
   actionButtonGroup: {
-    display:"flex",
-    flexDirection:"row",
-    justifyContent:"center",
-    alignItems:"center",
+    display: "flex",
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     // width: "100%",
     gap: 10,
     marginTop: 16,

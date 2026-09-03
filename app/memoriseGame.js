@@ -1,35 +1,3 @@
-/**
- * Simon-Says memory game — phone, tablet, and TV (Android TV / Fire TV) from
- * ONE codebase.
- *
- * Layout: the 4 pads sit in a DIAMOND — one per cardinal direction (top /
- * right / bottom / left) — so they spatially match a D-pad/remote 1:1.
- * Pressing "up" moves focus toward the top pad, "right" toward the right
- * pad, etc. This replaces the old 2x2 grid, which didn't map cleanly onto
- * 4-directional input.
- *
- * Animation: back to react-native-reanimated (spring physics on the UI
- * thread — noticeably snappier/bouncier than JS-thread Animated, and this
- * project's babel-preset-expo/install issues are now sorted).
- *
- * IMPORTANT BUG FIX vs. earlier versions: activation-flash and focus-scale
- * used to animate the SAME shared value independently, so when a pad was
- * both focused and flashing, the two springs fought each other and the
- * bounce mostly cancelled out. Fixed by giving each its own shared value
- * and multiplying them together in the final transform.
- *
- * ─── PROJECT SETUP ─────────────────────────────────────────────────────────
- * 1) npx expo install react-native-reanimated expo-audio
- * 2) No manual Babel plugin needed — babel-preset-expo auto-configures the
- *    Reanimated/Worklets transform for Expo-managed projects. Keep
- *    babel.config.js as just:
- *      module.exports = function (api) {
- *        api.cache(true);
- *        return { presets: ['babel-preset-expo'] };
- *      };
- * ───────────────────────────────────────────────────────────────────────────
- */
-
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   StyleSheet,
@@ -56,7 +24,6 @@ import { useAudioPlayer } from "expo-audio";
 import { useNavigation } from "@react-navigation/native";
 import { useControllerNav } from "../hooks/useControllerNav.js";
 
-// One pad per cardinal direction — matches D-pad physically.
 const PAD_LAYOUT = {
   top: { id: "green", base: "#1DB954", glow: "#7CFFB2" },
   right: { id: "red", base: "#E63946", glow: "#FF9B9B" },
@@ -65,21 +32,18 @@ const PAD_LAYOUT = {
 };
 const GAME_COLORS = Object.values(PAD_LAYOUT);
 
-// Instant snap-back with a tight, fast micro-bounce
 const BOUNCE_SPRING = {
   damping: 22, // High damping kills the long bounce/oscillation immediately
   stiffness: 500, // Extremely high tension for an instant reaction
   mass: 0.3, // Ultra-light mass so it accelerates and locks in instantly
 };
 
-// Instant focus/return configuration
 const FOCUS_SPRING = {
   damping: 25,
   stiffness: 600,
   mass: 0.2,
 };
 
-// Focus graphs — diamond layout, so directions map the way they look.
 const MENU_MAP = {
   back: { down: "start" },
   start: { up: "back" },
@@ -117,14 +81,12 @@ export default function App() {
 
   useEffect(() => {
     setFocusedId(defaultFocus);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameStarted]);
 
-  // ---- Sound ----
   const clickPlayer = useAudioPlayer(require("../assets/music/click.mp3"));
   const nextPlayer = useAudioPlayer(require("../assets/music/next.mp3"));
   const gameoverPlayer = useAudioPlayer(
-    require("../assets/music/gameover.mp3"),
+    require("../assets/music/lose1.mp3"),
   );
 
   const playSound = useCallback((player) => {
@@ -132,7 +94,6 @@ export default function App() {
       player.seekTo(0);
       player.play();
     } catch (e) {
-      // Never let a missing/unloaded sound block gameplay.
     }
   }, []);
 
@@ -276,8 +237,6 @@ export default function App() {
   );
 }
 
-/* ─────────────────────────── Menu screen ─────────────────────────── */
-
 function MenuScreen({
   isLargeScreen,
   fontScale,
@@ -345,8 +304,6 @@ function MenuScreen({
     </>
   );
 }
-
-/* ─────────────────────────── Game screen (diamond layout) ─────────────────────────── */
 
 function GameScreen({
   boardSize,
@@ -438,8 +395,6 @@ function GameScreen({
   );
 }
 
-/* ───────────────── Level badge (bounce on every level change) ───────────────── */
-
 function LevelBadge({ level, fontScale }) {
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
@@ -477,11 +432,7 @@ function LevelBadge({ level, fontScale }) {
   );
 }
 
-/* ───────────────── Game pad — separate shared values for flash vs. focus ───────────────── */
-
 function GamePad({ color, size, isActive, isFocused, onFocusId, onPress }) {
-  // Two INDEPENDENT scales, multiplied together in the final transform.
-  // This is the fix: flashing and focusing no longer fight over one value.
   const flashScale = useSharedValue(1);
   const focusScale = useSharedValue(1);
   const glow = useSharedValue(0);
@@ -544,8 +495,6 @@ function GamePad({ color, size, isActive, isFocused, onFocusId, onPress }) {
     </Pressable>
   );
 }
-
-/* ─────────────────────────── Reusable focusable button ─────────────────────────── */
 
 function FocusablePad({
   id,
