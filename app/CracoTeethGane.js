@@ -19,7 +19,7 @@ import Animated, {
   FadeIn,
 } from "react-native-reanimated";
 import { useAudioPlayer } from "expo-audio";
-import { useNavigation } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import { useControllerNav } from "../hooks/useControllerNav.js";
 
 const BOUNCE_SPRING = { damping: 7, stiffness: 220, mass: 0.5 };
@@ -46,7 +46,7 @@ export default function CracoTeethGame() {
   const [round, setRound] = useState(0);
   const [focusedId, setFocusedId] = useState("start");
 
-  const navigation = useNavigation();
+  const router = useRouter();
   const { width } = useWindowDimensions();
   const isLargeScreen = Platform.isTV || width >= 1024;
   const fontScale = isLargeScreen ? 1.5 : 1;
@@ -110,7 +110,7 @@ export default function CracoTeethGame() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [winNo]);
 
-  const goBackToMenu = () => navigation.navigate("gamelist");
+  const goBackToMenu = () => router.push("/gamelist");
 
   const selectFocused = () => {
     if (focusedId === "minus")

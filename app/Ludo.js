@@ -15,7 +15,7 @@ import {
   ScrollView,
   Image,
 } from "react-native";
-import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
+import { FontAwesome5 } from "@expo/vector-icons";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -26,7 +26,7 @@ import Animated, {
   FadeInDown,
 } from "react-native-reanimated";
 import { useAudioPlayer } from "expo-audio";
-import { useNavigation } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import { useControllerNav } from "../hooks/useControllerNav.js";
 import backgroundImageAsset from "../assets/images/dice.jpg";
 import { LuComputer } from "react-icons/lu";
@@ -249,7 +249,7 @@ export default function LudoGame() {
   const [winner, setWinner] = useState(null);
   const [message, setMessage] = useState("");
 
-  const navigation = useNavigation();
+  const router = useRouter();
   const { width, height } = useWindowDimensions();
   const isTabletOrTV = Platform.isTV || width >= 768;
   const isTV = Platform.isTV || width >= 1200;
@@ -299,7 +299,7 @@ export default function LudoGame() {
     setFocusedId("roll");
   };
 
-  const goBackToMenu = () => navigation.navigate("gamelist");
+  const goBackToMenu = () => router.push("/gamelist");
 
   const advanceTurn = (bonus) => {
     if (bonus) {

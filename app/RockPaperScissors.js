@@ -9,7 +9,7 @@ import {
   ScrollView,
   useWindowDimensions,
 } from "react-native";
-import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
+import { FontAwesome5 } from "@expo/vector-icons";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -20,7 +20,7 @@ import Animated, {
   FadeInDown,
 } from "react-native-reanimated";
 import { useAudioPlayer } from "expo-audio";
-import { useNavigation } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import { useControllerNav } from "../hooks/useControllerNav.js";
 import backgroundImageAsset from "../assets/images/gameboxUI.png";
 
@@ -54,7 +54,7 @@ export default function RockPaperScissors() {
   const [difficulty, setDifficulty] = useState("easy");
   const [focusedId, setFocusedId] = useState("rock");
 
-  const navigation = useNavigation();
+  const router = useRouter();
   const { width } = useWindowDimensions();
 
   // Responsive scale factors
@@ -112,7 +112,7 @@ export default function RockPaperScissors() {
     }
   };
 
-  const goBackToMenu = () => navigation.navigate("gamelist");
+  const goBackToMenu = () => router.push("/gamelist");
 
   const selectFocused = () => {
     if (focusedId === "difficulty") {

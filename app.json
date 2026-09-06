@@ -7,12 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/images/gamebox.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/images/gamebox.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#171616"
-    },
     "ios": {
       "supportsTablet": true
     },
@@ -28,7 +22,15 @@
     },
     "plugins": [
       "expo-router",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/gamebox.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#171616"
+        }
+      ]
     ],
     "extra": {
       "router": {

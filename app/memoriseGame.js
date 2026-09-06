@@ -1,28 +1,30 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
-  StyleSheet,
-  Text,
   View,
+  Text,
   Pressable,
-  Alert,
   Image,
   Platform,
   useWindowDimensions,
+  StyleSheet,
 } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  Easing,
-  FadeIn,
-  FadeInDown,
-  cancelAnimation,
   withSpring,
   withSequence,
   withTiming,
+  cancelAnimation,
+  interpolateColor,
+  FadeIn,
+  FadeInDown,
 } from "react-native-reanimated";
 import { useAudioPlayer } from "expo-audio";
-import { useNavigation } from "@react-navigation/native";
+import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useControllerNav } from "../hooks/useControllerNav.js";
+
+const HIGH_SCORE_KEY = "simon_highscore";
 
 const PAD_LAYOUT = {
   top: { id: "green", base: "#1DB954", glow: "#7CFFB2" },
@@ -31,18 +33,10 @@ const PAD_LAYOUT = {
   left: { id: "blue", base: "#2979FF", glow: "#9DC4FF" },
 };
 const GAME_COLORS = Object.values(PAD_LAYOUT);
+const COLOR_IDS = new Set(GAME_COLORS.map((c) => c.id));
 
-const BOUNCE_SPRING = {
-  damping: 22, // High damping kills the long bounce/oscillation immediately
-  stiffness: 500, // Extremely high tension for an instant reaction
-  mass: 0.3, // Ultra-light mass so it accelerates and locks in instantly
-};
-
-const FOCUS_SPRING = {
-  damping: 25,
-  stiffness: 600,
-  mass: 0.2,
-};
+const BOUNCE_SPRING = { damping: 22, stiffness: 500, mass: 0.3 };
+const FOCUS_SPRING = { damping: 25, stiffness: 600, mass: 0.2 };
 
 const MENU_MAP = {
   back: { down: "start" },
@@ -56,16 +50,23 @@ const GAME_MAP = {
   red: { up: "reset", left: "green", down: "yellow" },
   yellow: { up: "green", left: "blue", right: "red" },
 };
+const GAME_OVER_MAP = {
+  playAgain: { right: "backToMenu" },
+  backToMenu: { left: "playAgain" },
+};
 
 export default function App() {
+  const [phase, setPhase] = useState("menu"); // menu | playing | over
   const [gameSequence, setGameSequence] = useState([]);
   const [userSequence, setUserSequence] = useState([]);
   const [level, setLevel] = useState(0);
-  const [gameStarted, setGameStarted] = useState(false);
   const [activeColor, setActiveColor] = useState(null);
+  const [pressPulse, setPressPulse] = useState({ id: null, key: 0 });
   const [focusedId, setFocusedId] = useState("start");
+  const [highScore, setHighScore] = useState(0);
+  const [isNewHighScore, setIsNewHighScore] = useState(false);
 
-  const navigation = useNavigation();
+  const router = useRouter();
   const timeoutRef = useRef(null);
   const { width, height } = useWindowDimensions();
 
@@ -76,34 +77,39 @@ export default function App() {
   const buttonSize = boardSize / 3 - (isLargeScreen ? 20 : 14);
   const fontScale = isLargeScreen ? 1.6 : 1;
 
-  const currentMap = gameStarted ? GAME_MAP : MENU_MAP;
-  const defaultFocus = gameStarted ? "green" : "start";
+  const currentMap =
+    phase === "playing"
+      ? GAME_MAP
+      : phase === "menu"
+        ? MENU_MAP
+        : GAME_OVER_MAP;
+  const defaultFocus =
+    phase === "playing" ? "green" : phase === "menu" ? "start" : "playAgain";
 
   useEffect(() => {
     setFocusedId(defaultFocus);
-  }, [gameStarted]);
+  }, [phase]);
+
+  useEffect(() => {
+    AsyncStorage.getItem(HIGH_SCORE_KEY)
+      .then((v) => {
+        if (v) setHighScore(parseInt(v, 10) || 0);
+      })
+      .catch(() => {});
+  }, []);
 
   const clickPlayer = useAudioPlayer(require("../assets/music/click.mp3"));
   const nextPlayer = useAudioPlayer(require("../assets/music/next.mp3"));
-  const gameoverPlayer = useAudioPlayer(
-    require("../assets/music/lose1.mp3"),
-  );
+  const gameoverPlayer = useAudioPlayer(require("../assets/music/lose1.mp3"));
 
   const playSound = useCallback((player) => {
     try {
       player.seekTo(0);
       player.play();
-    } catch (e) {
-    }
+    } catch (e) {}
   }, []);
 
-  const startGame = () => {
-    resetGame();
-    setGameStarted(true);
-    nextRound();
-  };
-
-  const resetGame = () => {
+  const clearState = () => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
@@ -111,8 +117,20 @@ export default function App() {
     setGameSequence([]);
     setUserSequence([]);
     setLevel(0);
-    setGameStarted(false);
     setActiveColor(null);
+    setPressPulse({ id: null, key: 0 });
+  };
+
+  const startGame = () => {
+    clearState();
+    setIsNewHighScore(false);
+    setPhase("playing");
+    nextRound();
+  };
+
+  const resetGame = () => {
+    clearState();
+    setPhase("menu");
   };
 
   const nextRound = () => {
@@ -123,10 +141,27 @@ export default function App() {
     setGameSequence((prevSequence) => [...prevSequence, randomColor]);
   };
 
-  const handleColorPress = (colorId) => {
-    if (!gameStarted) return;
+  const endGame = useCallback(
+    (finalScore) => {
+      setPhase("over");
+      if (finalScore > highScore) {
+        setHighScore(finalScore);
+        setIsNewHighScore(true);
+        AsyncStorage.setItem(HIGH_SCORE_KEY, String(finalScore)).catch(
+          () => {},
+        );
+      } else {
+        setIsNewHighScore(false);
+      }
+    },
+    [highScore],
+  );
 
+  const handleColorPress = (colorId) => {
+    if (phase !== "playing") return;
+    setPressPulse((p) => ({ id: colorId, key: p.key + 1 }));
     playSound(clickPlayer);
+
     setUserSequence((prevSequence) => {
       const newSequence = [...prevSequence, colorId];
 
@@ -135,8 +170,7 @@ export default function App() {
         gameSequence[newSequence.length - 1]
       ) {
         playSound(gameoverPlayer);
-        Alert.alert("Game Over", "try again");
-        setGameStarted(false);
+        setTimeout(() => endGame(Math.max(0, level - 1)), 320);
         return prevSequence;
       }
 
@@ -150,87 +184,105 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!gameStarted || gameSequence.length === 0) return;
+    if (phase !== "playing" || gameSequence.length === 0) return;
 
     let cancelled = false;
-
     const playSequence = async () => {
       for (const colorId of gameSequence) {
         await new Promise((r) => setTimeout(r, 550));
         if (cancelled) return;
-
         setActiveColor(colorId);
         playSound(clickPlayer);
-
         await new Promise((r) => setTimeout(r, 350));
         if (cancelled) return;
-
         setActiveColor(null);
       }
     };
-
     playSequence();
 
     return () => {
       cancelled = true;
       setActiveColor(null);
     };
-  }, [gameSequence, gameStarted]);
+  }, [gameSequence, phase]);
 
   const goBackToMenu = () => {
-    resetGame();
-    navigation.navigate("gamelist");
+    clearState();
+    router.push("/gamelist");
   };
 
   const selectFocused = () => {
     const id = focusedId ?? defaultFocus;
-    if (!gameStarted) {
+    if (phase === "menu") {
       if (id === "back") return goBackToMenu();
       if (id === "start") return startGame();
+      return;
+    }
+    if (phase === "over") {
+      if (id === "playAgain") return startGame();
+      if (id === "backToMenu") return resetGame();
       return;
     }
     if (id === "back") return goBackToMenu();
     if (id === "reset") return resetGame();
     return handleColorPress(id);
   };
-
-  const moveFocus = (direction) => {
+  const handleDirection = (direction) => {
     const id = focusedId ?? defaultFocus;
     const next = currentMap[id]?.[direction];
-    if (next) setFocusedId(next);
+    if (!next) return;
+    setFocusedId(next);
+    if (phase === "playing" && COLOR_IDS.has(next)) {
+      handleColorPress(next);
+    }
   };
 
   useControllerNav({
-    onUp: () => moveFocus("up"),
-    onDown: () => moveFocus("down"),
-    onLeft: () => moveFocus("left"),
-    onRight: () => moveFocus("right"),
+    onUp: () => handleDirection("up"),
+    onDown: () => handleDirection("down"),
+    onLeft: () => handleDirection("left"),
+    onRight: () => handleDirection("right"),
     onSelect: selectFocused,
   });
 
   return (
     <View style={styles.container}>
-      {!gameStarted ? (
+      {phase === "menu" && (
         <MenuScreen
           isLargeScreen={isLargeScreen}
           fontScale={fontScale}
           focusedId={focusedId}
           setFocusedId={setFocusedId}
+          highScore={highScore}
           onStart={startGame}
           onBack={goBackToMenu}
         />
-      ) : (
+      )}
+      {phase === "playing" && (
         <GameScreen
           boardSize={boardSize}
           buttonSize={buttonSize}
           fontScale={fontScale}
           level={level}
           activeColor={activeColor}
+          pressPulse={pressPulse}
           focusedId={focusedId}
           setFocusedId={setFocusedId}
           onColorPress={handleColorPress}
           onReset={resetGame}
           onBack={goBackToMenu}
+        />
+      )}
+      {phase === "over" && (
+        <GameOverScreen
+          fontScale={fontScale}
+          score={Math.max(0, level - 1)}
+          highScore={highScore}
+          isNewHighScore={isNewHighScore}
+          focusedId={focusedId}
+          setFocusedId={setFocusedId}
+          onPlayAgain={startGame}
+          onBackToMenu={resetGame}
         />
       )}
     </View>
@@ -242,6 +294,7 @@ function MenuScreen({
   fontScale,
   focusedId,
   setFocusedId,
+  highScore,
   onStart,
   onBack,
 }) {
@@ -289,6 +342,10 @@ function MenuScreen({
           </Text>
         </Animated.View>
 
+        <Text style={[styles.highScoreText, { fontSize: 14 * fontScale }]}>
+          High Score: {highScore}
+        </Text>
+
         <Animated.View entering={FadeInDown.duration(500).delay(200)}>
           <FocusablePad
             id="start"
@@ -305,12 +362,90 @@ function MenuScreen({
   );
 }
 
+function GameOverScreen({
+  fontScale,
+  score,
+  highScore,
+  isNewHighScore,
+  focusedId,
+  setFocusedId,
+  onPlayAgain,
+  onBackToMenu,
+}) {
+  return (
+    <Animated.View entering={FadeIn.duration(350)} style={styles.gameOverCard}>
+      <Text
+        style={[styles.rulesTitle, { fontSize: 28 * fontScale, color: "#fff" }]}
+      >
+        Game Over
+      </Text>
+
+      {isNewHighScore && (
+        <Animated.View
+          entering={FadeInDown.duration(300)}
+          style={styles.newRecordBadge}
+        >
+          <Text style={[styles.newRecordText, { fontSize: 14 * fontScale }]}>
+            NEW HIGH SCORE!
+          </Text>
+        </Animated.View>
+      )}
+
+      <View style={styles.scoreRow}>
+        <View style={styles.scoreBlock}>
+          <Text style={[styles.scoreBlockLabel, { fontSize: 13 * fontScale }]}>
+            Your Score
+          </Text>
+          <Text style={[styles.scoreBlockValue, { fontSize: 34 * fontScale }]}>
+            {score}
+          </Text>
+        </View>
+        <View style={styles.scoreBlock}>
+          <Text style={[styles.scoreBlockLabel, { fontSize: 13 * fontScale }]}>
+            High Score
+          </Text>
+          <Text
+            style={[
+              styles.scoreBlockValue,
+              { fontSize: 34 * fontScale, color: "#facc15" },
+            ]}
+          >
+            {highScore}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.gameOverButtonRow}>
+        <FocusablePad
+          id="playAgain"
+          label="Play Again"
+          variant="primary"
+          fontScale={fontScale}
+          isFocused={focusedId === "playAgain"}
+          onFocusId={setFocusedId}
+          onPress={onPlayAgain}
+        />
+        <FocusablePad
+          id="backToMenu"
+          label="Back to Menu"
+          variant="secondary"
+          fontScale={fontScale}
+          isFocused={focusedId === "backToMenu"}
+          onFocusId={setFocusedId}
+          onPress={onBackToMenu}
+        />
+      </View>
+    </Animated.View>
+  );
+}
+
 function GameScreen({
   boardSize,
   buttonSize,
   fontScale,
   level,
   activeColor,
+  pressPulse,
   focusedId,
   setFocusedId,
   onColorPress,
@@ -318,6 +453,8 @@ function GameScreen({
   onBack,
 }) {
   const cell = boardSize / 3;
+  const pressKeyFor = (colorId) =>
+    pressPulse.id === colorId ? pressPulse.key : 0;
 
   return (
     <View style={styles.gameContainer}>
@@ -351,6 +488,7 @@ function GameScreen({
             color={PAD_LAYOUT.top}
             size={buttonSize}
             isActive={activeColor === PAD_LAYOUT.top.id}
+            pressKey={pressKeyFor(PAD_LAYOUT.top.id)}
             isFocused={focusedId === PAD_LAYOUT.top.id}
             onFocusId={setFocusedId}
             onPress={() => onColorPress(PAD_LAYOUT.top.id)}
@@ -363,6 +501,7 @@ function GameScreen({
             color={PAD_LAYOUT.left}
             size={buttonSize}
             isActive={activeColor === PAD_LAYOUT.left.id}
+            pressKey={pressKeyFor(PAD_LAYOUT.left.id)}
             isFocused={focusedId === PAD_LAYOUT.left.id}
             onFocusId={setFocusedId}
             onPress={() => onColorPress(PAD_LAYOUT.left.id)}
@@ -372,6 +511,7 @@ function GameScreen({
             color={PAD_LAYOUT.right}
             size={buttonSize}
             isActive={activeColor === PAD_LAYOUT.right.id}
+            pressKey={pressKeyFor(PAD_LAYOUT.right.id)}
             isFocused={focusedId === PAD_LAYOUT.right.id}
             onFocusId={setFocusedId}
             onPress={() => onColorPress(PAD_LAYOUT.right.id)}
@@ -384,6 +524,7 @@ function GameScreen({
             color={PAD_LAYOUT.bottom}
             size={buttonSize}
             isActive={activeColor === PAD_LAYOUT.bottom.id}
+            pressKey={pressKeyFor(PAD_LAYOUT.bottom.id)}
             isFocused={focusedId === PAD_LAYOUT.bottom.id}
             onFocusId={setFocusedId}
             onPress={() => onColorPress(PAD_LAYOUT.bottom.id)}
@@ -403,18 +544,11 @@ function LevelBadge({ level, fontScale }) {
   useEffect(() => {
     if (firstRender.current) {
       firstRender.current = false;
-      return; // Prevent ghost animation
+      return;
     }
-
     scale.value = 0.72;
     opacity.value = 0.2;
-
-    scale.value = withSpring(1, {
-      damping: 6,
-      stiffness: 240,
-      mass: 0.45,
-    });
-
+    scale.value = withSpring(1, { damping: 6, stiffness: 240, mass: 0.45 });
     opacity.value = withTiming(1, { duration: 180 });
   }, [level]);
 
@@ -432,27 +566,32 @@ function LevelBadge({ level, fontScale }) {
   );
 }
 
-function GamePad({ color, size, isActive, isFocused, onFocusId, onPress }) {
+function GamePad({
+  color,
+  size,
+  isActive,
+  pressKey,
+  isFocused,
+  onFocusId,
+  onPress,
+}) {
   const flashScale = useSharedValue(1);
+  const pressBounce = useSharedValue(1);
   const focusScale = useSharedValue(1);
   const glow = useSharedValue(0);
   const focusAnim = useSharedValue(0);
 
+  // Sequence REPLAY flash (computer showing the pattern).
   useEffect(() => {
     if (!isActive) return;
-
-    // Cancel any previous animation and restart from 1
     cancelAnimation(flashScale);
     cancelAnimation(glow);
-
     flashScale.value = 1;
     glow.value = 0;
-
     flashScale.value = withSequence(
       withSpring(1.22, BOUNCE_SPRING),
       withSpring(1, BOUNCE_SPRING),
     );
-
     glow.value = withSequence(
       withTiming(1, { duration: 60 }),
       withTiming(0, { duration: 180 }),
@@ -460,16 +599,33 @@ function GamePad({ color, size, isActive, isFocused, onFocusId, onPress }) {
   }, [isActive]);
 
   useEffect(() => {
+    if (!pressKey) return;
+    cancelAnimation(pressBounce);
+    pressBounce.value = 1;
+    pressBounce.value = withSequence(
+      withSpring(1.22, BOUNCE_SPRING),
+      withSpring(1, BOUNCE_SPRING),
+    );
+  }, [pressKey]);
+
+  useEffect(() => {
     focusScale.value = withSpring(isFocused ? 1.08 : 1, FOCUS_SPRING);
     focusAnim.value = withSpring(isFocused ? 1 : 0, FOCUS_SPRING);
   }, [isFocused]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: flashScale.value * focusScale.value }],
+    transform: [
+      { scale: flashScale.value * pressBounce.value * focusScale.value },
+    ],
     shadowOpacity: 0.35 + glow.value * 0.55 + focusAnim.value * 0.25,
     shadowRadius: 10 + glow.value * 24 + focusAnim.value * 12,
     elevation: 6 + glow.value * 16 + focusAnim.value * 10,
-    borderColor: focusAnim.value > 0.05 ? "#ffffff" : "transparent",
+    // interpolateColor, not a raw ternary — see header note.
+    borderColor: interpolateColor(
+      focusAnim.value,
+      [0, 1],
+      ["transparent", "#ffffff"],
+    ),
   }));
 
   return (
@@ -508,6 +664,16 @@ function FocusablePad({
   const scale = useSharedValue(1);
   const focusAnim = useSharedValue(0);
 
+  const handlePress = () => {
+    // Quick tap feedback for touch, using the same BOUNCE_SPRING as the
+    // color pads for a consistent feel across the whole app.
+    scale.value = withSequence(
+      withSpring(0.9, BOUNCE_SPRING),
+      withSpring(isFocused ? 1.08 : 1, BOUNCE_SPRING),
+    );
+    onPress();
+  };
+
   useEffect(() => {
     scale.value = withSpring(isFocused ? 1.08 : 1, FOCUS_SPRING);
     focusAnim.value = withSpring(isFocused ? 1 : 0, FOCUS_SPRING);
@@ -518,7 +684,11 @@ function FocusablePad({
     shadowOpacity: 0.25 + focusAnim.value * 0.45,
     shadowRadius: 6 + focusAnim.value * 14,
     elevation: 4 + focusAnim.value * 10,
-    borderColor: focusAnim.value > 0.05 ? "#ffffff" : "transparent",
+    borderColor: interpolateColor(
+      focusAnim.value,
+      [0, 1],
+      ["transparent", "#ffffff"],
+    ),
   }));
 
   const variantStyle =
@@ -534,7 +704,7 @@ function FocusablePad({
       isTVSelectable
       onFocus={() => onFocusId(id)}
       onBlur={() => onFocusId(null)}
-      onPress={onPress}
+      onPress={handlePress}
     >
       <Animated.View style={[styles.btnBase, variantStyle, animatedStyle]}>
         <Text style={[styles.btnText, { fontSize: 18 * fontScale }]}>
@@ -567,7 +737,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     gap: 16,
-    paddingHorizontal: "6%", // TV-safe overscan margin
+    paddingHorizontal: "6%",
   },
   gameContainer: {
     width: "100%",
@@ -643,4 +813,29 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textAlign: "center",
   },
+  highScoreText: { color: "#facc15", fontWeight: "700" },
+  gameOverCard: {
+    alignItems: "center",
+    marginVertical: "auto",
+    gap: 14,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 20,
+    padding: 28,
+    width: "90%",
+    maxWidth: 600,
+  },
+  newRecordBadge: {
+    backgroundColor: "rgba(250,204,21,0.15)",
+    borderColor: "#facc15",
+    borderWidth: 2,
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 6,
+  },
+  newRecordText: { color: "#facc15", fontWeight: "900", letterSpacing: 1 },
+  scoreRow: { flexDirection: "row", gap: 32, marginTop: 6 },
+  scoreBlock: { alignItems: "center" },
+  scoreBlockLabel: { color: "#a78bfa", fontWeight: "600" },
+  scoreBlockValue: { color: "#f8fafc", fontWeight: "900", marginTop: 2 },
+  gameOverButtonRow: { flexDirection: "row", gap: 12, marginTop: 10 },
 });

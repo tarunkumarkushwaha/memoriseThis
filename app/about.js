@@ -7,12 +7,12 @@ import {
   StyleSheet,
   useWindowDimensions,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import { useControllerNav } from "../hooks/useControllerNav";
 import backgroundImageAsset from "../assets/images/gameboxUI.png";
 
 export default function AboutScreen() {
-  const navigation = useNavigation();
+  const router = useRouter();
   const { width } = useWindowDimensions();
   const [isFocused, setIsFocused] = useState(true);
   const isTabletOrTV = width >= 768;
@@ -26,7 +26,7 @@ export default function AboutScreen() {
   ];
 
   const handleSelect = useCallback(() => {
-    navigation.goBack();
+    router.back();
   }, [navigation]);
 
   useControllerNav({
@@ -96,7 +96,7 @@ export default function AboutScreen() {
             activeOpacity={0.85}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
-            onPress={() => navigation.goBack()}
+            onPress={() => router.back()}
             style={[
               styles.button,
               styles.secondaryButton,

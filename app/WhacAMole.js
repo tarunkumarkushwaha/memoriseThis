@@ -1,80 +1,75 @@
-/**
- * Whac-a-Mole — rewritten for TV + real difficulty progression.
- *
- * Bugs fixed from the original:
- * - Difficulty never actually changed during a round: the spawn effect
- *   computed a `speed` value from `timeLeft` but then used
- *   `selectedSpeed.speed` in the setInterval instead — the computed value
- *   was dead code.
- * - That same effect re-ran every second (deps: [started, timeLeft]),
- *   tearing down and rebuilding the spawn interval every tick regardless
- *   of the configured speed, making actual mole timing unpredictable.
- * - The Speed Selector was unreachable by D-pad: MENU_MAP only linked
- *   back<->start (skipping over it), and onLeft/onRight in
- *   useControllerNav did nothing at all while in the menu.
- * - GRID_MAP was hardcoded for exactly 9 holes, which is why a layout
- *   selector wasn't possible before — it's now generated for any NxN size.
- *
- * New: a Layout selector (3x3 / 4x4 / 5x5, bigger grids make sense on a
- * TV), a real Level system driven by score that actually speeds up spawns
- * and — at higher levels, on bigger grids — spawns more than one mole at
- * once, and TV-scaled fonts/sizing/safe margins throughout.
- *
- * Assumes Hole.js (the mole/hole visual, unchanged) lives at
- * '../components/Hole' — adjust the import path to match your project.
- *
- * ─── SETUP ─────────────────────────────────────────────────────────────────
- * npx expo install react-native-reanimated expo-audio
- * ───────────────────────────────────────────────────────────────────────────
- */
-
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert, Platform, useWindowDimensions } from 'react-native';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from "react";
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  Alert,
+  Image,
+  Platform,
+  useWindowDimensions,
+} from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   FadeIn,
   FadeInDown,
-} from 'react-native-reanimated';
-import { useAudioPlayer } from 'expo-audio';
-import { useNavigation } from '@react-navigation/native';
-import { useControllerNav } from '../hooks/useControllerNav.js';
-import Hole from '../components/Hole';
+  interpolateColor,
+} from "react-native-reanimated";
+import { useAudioPlayer } from "expo-audio";
+import { useRouter } from "expo-router";
+import { useControllerNav } from "../hooks/useControllerNav.js";
+import Hole from "../components/Hole";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import backgroundImageAsset from "../assets/images/gameboxUI.png";
 
 const FOCUS_SPRING = { damping: 10, stiffness: 180, mass: 0.6 };
+const BOUNCE_SPRING = { damping: 8, stiffness: 220, mass: 0.5 };
+const HIGH_SCORE_KEY = "whacamole_highscore";
 
 const SPEEDS = [
-  { id: 'easy', label: 'Easy', speed: 850 },
-  { id: 'normal', label: 'Normal', speed: 700 },
-  { id: 'hard', label: 'Hard', speed: 550 },
-  { id: 'extreme', label: 'Extreme', speed: 400 },
+  { id: "dumb", label: "Dumb", speed: 1200 },
+  { id: "ultra-easy", label: "Ultra Easy", speed: 1000 },
+  { id: "easy", label: "Easy", speed: 850 },
+  { id: "normal", label: "Normal", speed: 700 },
+  { id: "medium", label: "Medium", speed: 600 },
+  { id: "hard", label: "Hard", speed: 500 },
+  { id: "very-hard", label: "Very Hard", speed: 400 },
+  { id: "god", label: "God Level", speed: 280 },
 ];
 
 const LAYOUTS = [
-  // Cross layout: exactly 4 holes, one per D-pad direction. Unlike a plain
-  // 2x2 square (where the diagonal hole would still need two presses),
-  // pressing a direction jumps STRAIGHT to that hole — a true 1:1 match
-  // with the physical remote, handled via CROSS_POSITIONS below.
-  { id: '2x2', label: '2 × 2 (Remote)', size: 2, maxSimultaneous: 1, isCross: true },
-  { id: '3x3', label: '3 × 3', size: 3, maxSimultaneous: 2 },
-  { id: '4x4', label: '4 × 4', size: 4, maxSimultaneous: 3 },
-  { id: '5x5', label: '5 × 5', size: 5, maxSimultaneous: 4 },
+  // Cross layout: exactly 4 holes, one per D-pad direction. A direction
+  // press hits DIRECTLY (see handleDirection below) rather than just
+  // moving focus — matching a real remote 1:1.
+  {
+    id: "2x2",
+    label: "2 × 2 (Remote)",
+    size: 2,
+    maxSimultaneous: 1,
+    isCross: true,
+  },
+  { id: "3x3", label: "3 × 3", size: 3, maxSimultaneous: 2 },
+  { id: "4x4", label: "4 × 4", size: 4, maxSimultaneous: 3 },
+  { id: "5x5", label: "5 × 5", size: 5, maxSimultaneous: 4 },
 ];
 
-// Fixed hole-index assignment for the cross layout — top/right/bottom/left,
-// matching a remote's up/right/down/left buttons directly.
 const CROSS_POSITIONS = { up: 0, right: 1, down: 2, left: 3 };
 
 const MENU_MAP = {
-  back: { down: 'speed' },
-  speed: { up: 'back', down: 'layout' },
-  layout: { up: 'speed', down: 'start' },
-  start: { up: 'layout' },
+  back: { down: "speed" },
+  speed: { up: "back", down: "layout" },
+  layout: { up: "speed", down: "start" },
+  start: { up: "layout" },
 };
 
-// Generates up/down/left/right neighbors for an arbitrary NxN grid —
-// replaces the old hardcoded-for-9-holes GRID_MAP.
 function buildGridMap(size) {
   const map = {};
   for (let r = 0; r < size; r++) {
@@ -90,39 +85,44 @@ function buildGridMap(size) {
   return map;
 }
 
-const LEVEL_UP_EVERY = 5; // score points per level
+const LEVEL_UP_EVERY = 5;
 const MIN_SPEED_MS = 220;
 const SPEED_STEP_PER_LEVEL = 35;
 
 export default function WhacAMole() {
-  const navigation = useNavigation();
+  const router = useRouter();
   const { width, height } = useWindowDimensions();
 
   const isLarge = Platform.isTV || width >= 1000;
   const fontScale = isLarge ? 1.5 : 1;
 
-  const [started, setStarted] = useState(false);
+  const [phase, setPhase] = useState("setup"); // setup | playing | over
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
   const [timeLeft, setTimeLeft] = useState(60);
-  const [activeMoles, setActiveMoles] = useState([]); // array of hole indices
+  const [activeMoles, setActiveMoles] = useState([]);
   const [level, setLevel] = useState(1);
   const [showLevelUp, setShowLevelUp] = useState(false);
+  const [highScore, setHighScore] = useState(0);
+  const [isNewHighScore, setIsNewHighScore] = useState(false);
 
-  const [focusedMenu, setFocusedMenu] = useState('start');
+  const [focusedMenu, setFocusedMenu] = useState("start");
   const [focusedHole, setFocusedHole] = useState(0);
+  const [focusedGameOver, setFocusedGameOver] = useState("playAgain");
 
-  const [selectedSpeedIdx, setSelectedSpeedIdx] = useState(1); // Normal
-  const [selectedLayoutIdx, setSelectedLayoutIdx] = useState(1); // 3x3 (index0 is the new 2x2 cross layout)
+  const [selectedSpeedIdx, setSelectedSpeedIdx] = useState(3);
+  const [selectedLayoutIdx, setSelectedLayoutIdx] = useState(0);
 
   const selectedSpeed = SPEEDS[selectedSpeedIdx];
   const selectedLayout = LAYOUTS[selectedLayoutIdx];
   const gridSize = selectedLayout.size;
   const holeCount = gridSize * gridSize;
 
-  const boardSize = isLarge ? Math.min(680, height * 0.6) : Math.min(340, width * 0.9);
+  const boardSize = isLarge
+    ? Math.min(680, height * 0.6)
+    : Math.min(340, width * 0.9);
   const holeSize = selectedLayout.isCross
-    ? boardSize / 3 - (isLarge ? 20 : 14) // cross uses a 3-cell-wide diamond, not gridSize
+    ? boardSize / 3 - (isLarge ? 20 : 14)
     : boardSize / gridSize - (isLarge ? 20 : 14);
 
   const gridMap = useMemo(() => buildGridMap(gridSize), [gridSize]);
@@ -131,15 +131,24 @@ export default function WhacAMole() {
   const timerRef = useRef(null);
   const prevLevelRef = useRef(1);
 
-  const hitPlayer = useAudioPlayer(require('../assets/music/click.mp3'));
-  const missPlayer = useAudioPlayer(require('../assets/music/gameover.mp3'));
-  const levelUpPlayer = useAudioPlayer(require('../assets/music/next.mp3'));
+  const hitPlayer = useAudioPlayer(require("../assets/music/click.mp3"));
+  const missPlayer = useAudioPlayer(require("../assets/music/gameover.mp3"));
+  const levelUpPlayer = useAudioPlayer(require("../assets/music/next.mp3"));
 
   const play = useCallback((player) => {
     try {
       player.seekTo(0);
       player.play();
     } catch (e) {}
+  }, []);
+
+  // Load persisted high score once on mount.
+  useEffect(() => {
+    AsyncStorage.getItem(HIGH_SCORE_KEY)
+      .then((v) => {
+        if (v) setHighScore(parseInt(v, 10) || 0);
+      })
+      .catch(() => {});
   }, []);
 
   const clearGame = () => {
@@ -156,33 +165,54 @@ export default function WhacAMole() {
     setLives(3);
     setTimeLeft(60);
     setLevel(1);
+    setIsNewHighScore(false);
     prevLevelRef.current = 1;
     setFocusedHole(Math.floor(holeCount / 2));
-    setStarted(true);
+    setPhase("playing");
   };
 
-  const backMenu = () => {
+  const backToMenu = () => {
     clearGame();
-    navigation.goBack();
+    setPhase("setup");
+    setFocusedMenu("start");
   };
 
-  // Round countdown.
+  const exitApp = () => {
+    clearGame();
+    router.back();;
+  };
+
+  const endGame = useCallback(
+    (finalScore) => {
+      clearGame();
+      setPhase("over");
+      setFocusedGameOver("playAgain");
+      if (finalScore > highScore) {
+        setHighScore(finalScore);
+        setIsNewHighScore(true);
+        AsyncStorage.setItem(HIGH_SCORE_KEY, String(finalScore)).catch(
+          () => {},
+        );
+      } else {
+        setIsNewHighScore(false);
+      }
+    },
+    [highScore],
+  );
+
   useEffect(() => {
-    if (!started) return;
+    if (phase !== "playing") return;
     timerRef.current = setInterval(() => setTimeLeft((t) => t - 1), 1000);
     return () => clearInterval(timerRef.current);
-  }, [started]);
+  }, [phase]);
 
-  // Level derives from score — this replaces the old dead timeLeft-based
-  // "speed" calculation, and it's actually used below.
   useEffect(() => {
     const nextLevel = Math.floor(score / LEVEL_UP_EVERY) + 1;
     if (nextLevel !== level) setLevel(nextLevel);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [score]);
 
   useEffect(() => {
-    if (level > prevLevelRef.current && started) {
+    if (level > prevLevelRef.current && phase === "playing") {
       prevLevelRef.current = level;
       setShowLevelUp(true);
       play(levelUpPlayer);
@@ -190,16 +220,18 @@ export default function WhacAMole() {
       return () => clearTimeout(t);
     }
     prevLevelRef.current = level;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level]);
 
-  // Spawn loop — depends only on [started, level, selectedSpeedIdx,
-  // gridSize], NOT on timeLeft, so it no longer rebuilds every second.
   useEffect(() => {
-    if (!started) return;
-
-    const effectiveSpeed = Math.max(MIN_SPEED_MS, selectedSpeed.speed - (level - 1) * SPEED_STEP_PER_LEVEL);
-    const simultaneousCount = Math.min(1 + Math.floor((level - 1) / 3), selectedLayout.maxSimultaneous);
+    if (phase !== "playing") return;
+    const effectiveSpeed = Math.max(
+      MIN_SPEED_MS,
+      selectedSpeed.speed - (level - 1) * SPEED_STEP_PER_LEVEL,
+    );
+    const simultaneousCount = Math.min(
+      1 + Math.floor((level - 1) / 3),
+      selectedLayout.maxSimultaneous,
+    );
 
     spawnRef.current = setInterval(() => {
       const picks = new Set();
@@ -210,98 +242,116 @@ export default function WhacAMole() {
     }, effectiveSpeed);
 
     return () => clearInterval(spawnRef.current);
-  }, [started, level, selectedSpeedIdx, gridSize]);
+  }, [phase, level, selectedSpeedIdx, gridSize]);
 
   useEffect(() => {
-    if (!started) return;
-    if (timeLeft <= 0) {
-      clearGame();
-      setStarted(false);
-      Alert.alert('Time Up!', `Final Score: ${score} — Level ${level}`);
-    }
+    if (phase !== "playing") return;
+    if (timeLeft <= 0) endGame(score);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft]);
 
   useEffect(() => {
-    if (!started) return;
-    if (lives <= 0) {
-      clearGame();
-      setStarted(false);
-      Alert.alert('Game Over', `Score: ${score} — Level ${level}`);
-    }
+    if (phase !== "playing") return;
+    if (lives <= 0) endGame(score);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lives]);
-
-  const hit = () => {
-    if (!started) return;
-    if (activeMoles.includes(focusedHole)) {
+  const attemptHit = (index) => {
+    if (phase !== "playing") return;
+    if (activeMoles.includes(index)) {
       play(hitPlayer);
       setScore((s) => s + 1);
-      setActiveMoles((prev) => prev.filter((i) => i !== focusedHole));
+      setActiveMoles((prev) => prev.filter((i) => i !== index));
     } else {
       play(missPlayer);
       setLives((l) => Math.max(0, l - 1));
     }
   };
 
+  const hit = () => attemptHit(focusedHole);
+
   const moveHole = (dir) => {
-    if (selectedLayout.isCross) {
-      // Direct button-to-hole mapping — always jumps to that hole,
-      // regardless of current focus, matching a real remote.
-      const target = CROSS_POSITIONS[dir];
-      if (target !== undefined) setFocusedHole(target);
-      return;
-    }
     const next = gridMap[focusedHole]?.[dir];
     if (next !== undefined) setFocusedHole(next);
+  };
+  const handleDirection = (dir) => {
+    if (selectedLayout.isCross) {
+      const target = CROSS_POSITIONS[dir];
+      if (target === undefined) return;
+      setFocusedHole(target);
+      attemptHit(target);
+      return;
+    }
+    moveHole(dir);
   };
 
   useControllerNav({
     onUp: () => {
-      if (!started) {
+      if (phase === "setup") {
         const n = MENU_MAP[focusedMenu]?.up;
         if (n) setFocusedMenu(n);
-      } else moveHole('up');
+      } else if (phase === "playing") handleDirection("up");
     },
     onDown: () => {
-      if (!started) {
+      if (phase === "setup") {
         const n = MENU_MAP[focusedMenu]?.down;
         if (n) setFocusedMenu(n);
-      } else moveHole('down');
+      } else if (phase === "playing") handleDirection("down");
     },
     onLeft: () => {
-      if (!started) {
-        if (focusedMenu === 'speed') setSelectedSpeedIdx((i) => Math.max(0, i - 1));
-        else if (focusedMenu === 'layout') setSelectedLayoutIdx((i) => Math.max(0, i - 1));
-      } else moveHole('left');
+      if (phase === "setup") {
+        if (focusedMenu === "speed")
+          setSelectedSpeedIdx((i) => Math.max(0, i - 1));
+        else if (focusedMenu === "layout")
+          setSelectedLayoutIdx((i) => Math.max(0, i - 1));
+      } else if (phase === "playing") handleDirection("left");
+      else if (phase === "over") setFocusedGameOver("playAgain");
     },
     onRight: () => {
-      if (!started) {
-        if (focusedMenu === 'speed') setSelectedSpeedIdx((i) => Math.min(SPEEDS.length - 1, i + 1));
-        else if (focusedMenu === 'layout') setSelectedLayoutIdx((i) => Math.min(LAYOUTS.length - 1, i + 1));
-      } else moveHole('right');
+      if (phase === "setup") {
+        if (focusedMenu === "speed")
+          setSelectedSpeedIdx((i) => Math.min(SPEEDS.length - 1, i + 1));
+        else if (focusedMenu === "layout")
+          setSelectedLayoutIdx((i) => Math.min(LAYOUTS.length - 1, i + 1));
+      } else if (phase === "playing") handleDirection("right");
+      else if (phase === "over") setFocusedGameOver("backToMenu");
     },
     onSelect: () => {
-      if (!started) {
-        if (focusedMenu === 'back') return backMenu();
-        if (focusedMenu === 'start') return startGame();
-        return; // speed/layout are pure left-right choosers
+      if (phase === "setup") {
+        if (focusedMenu === "back") return exitApp();
+        if (focusedMenu === "start") return startGame();
+        return;
       }
-      hit();
+      if (phase === "playing") return hit();
+      if (phase === "over") {
+        if (focusedGameOver === "playAgain") return startGame();
+        if (focusedGameOver === "backToMenu") return backToMenu();
+      }
     },
   });
 
-  if (!started) {
+  if (phase === "setup") {
     return (
       <View style={styles.container}>
+        <Image
+          source={backgroundImageAsset}
+          style={styles.backgroundImage}
+          resizeMode="cover"
+        />
+        <View style={styles.darkOverlay} />
         <Animated.View entering={FadeIn.duration(500)} style={styles.menu}>
-          <Text style={[styles.title, { fontSize: 30 * fontScale }]}>Whac-a-Mole</Text>
-          <Text style={[styles.subtitle, { fontSize: 14 * fontScale }]}>Hit the mole before it disappears!</Text>
+          <Text style={[styles.title, { fontSize: 20 * fontScale }]}>
+            Whac-a-Mole
+          </Text>
+          <Text style={[styles.subtitle, { fontSize: 14 * fontScale }]}>
+            Hit the mole before it disappears!
+          </Text>
 
           <MenuButton
-            label="Back"
+            label="Back to Menu"
             fontScale={fontScale}
-            focused={focusedMenu === 'back'}
-            onFocus={() => setFocusedMenu('back')}
-            onPress={backMenu}
+            focused={focusedMenu === "back"}
+            onFocus={() => setFocusedMenu("back")}
+            onPress={exitApp}
           />
 
           <OptionSelector
@@ -309,10 +359,12 @@ export default function WhacAMole() {
             fontScale={fontScale}
             options={SPEEDS}
             selectedIndex={selectedSpeedIdx}
-            isFocused={focusedMenu === 'speed'}
-            onFocus={() => setFocusedMenu('speed')}
+            isFocused={focusedMenu === "speed"}
+            onFocus={() => setFocusedMenu("speed")}
             onLeft={() => setSelectedSpeedIdx((i) => Math.max(0, i - 1))}
-            onRight={() => setSelectedSpeedIdx((i) => Math.min(SPEEDS.length - 1, i + 1))}
+            onRight={() =>
+              setSelectedSpeedIdx((i) => Math.min(SPEEDS.length - 1, i + 1))
+            }
           />
 
           <OptionSelector
@@ -320,20 +372,112 @@ export default function WhacAMole() {
             fontScale={fontScale}
             options={LAYOUTS}
             selectedIndex={selectedLayoutIdx}
-            isFocused={focusedMenu === 'layout'}
-            onFocus={() => setFocusedMenu('layout')}
+            isFocused={focusedMenu === "layout"}
+            onFocus={() => setFocusedMenu("layout")}
             onLeft={() => setSelectedLayoutIdx((i) => Math.max(0, i - 1))}
-            onRight={() => setSelectedLayoutIdx((i) => Math.min(LAYOUTS.length - 1, i + 1))}
+            onRight={() =>
+              setSelectedLayoutIdx((i) => Math.min(LAYOUTS.length - 1, i + 1))
+            }
           />
+
+          {/* {selectedLayout.isCross && (
+            <Text style={[styles.hint, { fontSize: 12 * fontScale }]}>
+              Remote mode: D-pad directions hit directly — no select needed.
+            </Text>
+          )} */}
+
+          <Text style={[styles.highScoreText, { fontSize: 13 * fontScale }]}>
+            High Score: {highScore}
+          </Text>
 
           <MenuButton
             label="Start Game"
             variant="primary"
             fontScale={fontScale}
-            focused={focusedMenu === 'start'}
-            onFocus={() => setFocusedMenu('start')}
+            focused={focusedMenu === "start"}
+            onFocus={() => setFocusedMenu("start")}
             onPress={startGame}
           />
+        </Animated.View>
+      </View>
+    );
+  }
+
+  if (phase === "over") {
+    return (
+      <View style={styles.container}>
+        <Animated.View
+          entering={FadeIn.duration(350)}
+          style={styles.gameOverCard}
+        >
+          <Text style={[styles.title, { fontSize: 28 * fontScale }]}>
+            Game Over
+          </Text>
+
+          {isNewHighScore && (
+            <Animated.View
+              entering={FadeInDown.duration(300)}
+              style={styles.newRecordBadge}
+            >
+              <Text
+                style={[styles.newRecordText, { fontSize: 14 * fontScale }]}
+              >
+                NEW HIGH SCORE!
+              </Text>
+            </Animated.View>
+          )}
+
+          <View style={styles.scoreRow}>
+            <View style={styles.scoreBlock}>
+              <Text
+                style={[styles.scoreBlockLabel, { fontSize: 13 * fontScale }]}
+              >
+                Your Score
+              </Text>
+              <Text
+                style={[styles.scoreBlockValue, { fontSize: 34 * fontScale }]}
+              >
+                {score}
+              </Text>
+            </View>
+            <View style={styles.scoreBlock}>
+              <Text
+                style={[styles.scoreBlockLabel, { fontSize: 13 * fontScale }]}
+              >
+                High Score
+              </Text>
+              <Text
+                style={[
+                  styles.scoreBlockValue,
+                  { fontSize: 34 * fontScale, color: "#facc15" },
+                ]}
+              >
+                {highScore}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={[styles.levelReached, { fontSize: 14 * fontScale }]}>
+            Reached Level {level}
+          </Text>
+
+          <View style={styles.gameOverButtonRow}>
+            <MenuButton
+              label="Play Again"
+              variant="primary"
+              fontScale={fontScale}
+              focused={focusedGameOver === "playAgain"}
+              onFocus={() => setFocusedGameOver("playAgain")}
+              onPress={startGame}
+            />
+            <MenuButton
+              label="Back to Menu"
+              fontScale={fontScale}
+              focused={focusedGameOver === "backToMenu"}
+              onFocus={() => setFocusedGameOver("backToMenu")}
+              onPress={backToMenu}
+            />
+          </View>
         </Animated.View>
       </View>
     );
@@ -343,21 +487,40 @@ export default function WhacAMole() {
     <View style={styles.container}>
       <View style={styles.hud}>
         <Stat label="Score" value={score} fontScale={fontScale} />
-        <Stat label="Level" value={level} fontScale={fontScale} accent="#facc15" />
-        <Stat label="Lives" value={'❤️'.repeat(lives)} fontScale={fontScale} isEmoji />
+        <Stat
+          label="Level"
+          value={level}
+          fontScale={fontScale}
+          accent="#facc15"
+        />
+        <Stat
+          label="Lives"
+          value={"❤️".repeat(lives)}
+          fontScale={fontScale}
+          isEmoji
+        />
         <Stat label="Time" value={`${timeLeft}s`} fontScale={fontScale} />
       </View>
 
       {showLevelUp && (
-        <Animated.View entering={FadeIn.duration(200)} style={styles.levelUpBanner}>
-          <Text style={[styles.levelUpText, { fontSize: 20 * fontScale }]}>LEVEL {level}!</Text>
+        <Animated.View
+          entering={FadeIn.duration(200)}
+          style={styles.levelUpBanner}
+        >
+          <Text style={[styles.levelUpText, { fontSize: 20 * fontScale }]}>
+            LEVEL {level}!
+          </Text>
         </Animated.View>
       )}
 
       {selectedLayout.isCross ? (
         <Animated.View
           entering={FadeInDown.duration(450)}
-          style={[styles.board, styles.crossBoard, { width: boardSize, height: boardSize }]}
+          style={[
+            styles.board,
+            styles.crossBoard,
+            { width: boardSize, height: boardSize },
+          ]}
         >
           {(() => {
             const cell = boardSize / 3;
@@ -369,7 +532,7 @@ export default function WhacAMole() {
               onFocusId: (id) => {
                 if (id !== null) setFocusedHole(id);
               },
-              onPress: hit,
+              onPress: () => attemptHit(index),
             });
             return (
               <>
@@ -407,33 +570,50 @@ export default function WhacAMole() {
               onFocusId={(id) => {
                 if (id !== null) setFocusedHole(id);
               }}
-              onPress={hit}
+              onPress={() => attemptHit(index)}
             />
           ))}
         </Animated.View>
       )}
 
-      <Text style={[styles.tip, { fontSize: 13 * fontScale }]}>Use D-pad to move • OK to Whack</Text>
+      <Text style={[styles.tip, { fontSize: 13 * fontScale }]}>
+        {selectedLayout.isCross
+          ? "Use D-pad to whack directly"
+          : "Use D-pad to move • OK to Whack"}
+      </Text>
     </View>
   );
 }
 
-/* ─────────────────────────── HUD stat ─────────────────────────── */
-
 function Stat({ label, value, fontScale, accent, isEmoji }) {
   return (
     <View style={styles.stat}>
-      <Text style={[styles.statLabel, { fontSize: 12 * fontScale }]}>{label}</Text>
-      <Text style={[styles.statValue, { fontSize: (isEmoji ? 16 : 20) * fontScale, color: accent || '#f8fafc' }]}>
+      <Text style={[styles.statLabel, { fontSize: 12 * fontScale }]}>
+        {label}
+      </Text>
+      <Text
+        style={[
+          styles.statValue,
+          {
+            fontSize: (isEmoji ? 16 : 20) * fontScale,
+            color: accent || "#f8fafc",
+          },
+        ]}
+      >
         {value}
       </Text>
     </View>
   );
 }
 
-/* ─────────────────────────── Menu button ─────────────────────────── */
-
-function MenuButton({ label, variant = 'secondary', fontScale, focused, onFocus, onPress }) {
+function MenuButton({
+  label,
+  variant = "secondary",
+  fontScale,
+  focused,
+  onFocus,
+  onPress,
+}) {
   const scale = useSharedValue(1);
   const focusAnim = useSharedValue(0);
 
@@ -444,23 +624,43 @@ function MenuButton({ label, variant = 'secondary', fontScale, focused, onFocus,
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-    borderColor: focusAnim.value > 0.05 ? '#FFE45E' : 'transparent',
-    shadowOpacity: 0.2 + focusAnim.value * 0.5,
-    elevation: 3 + focusAnim.value * 10,
+    // interpolateColor, not a raw ternary — see header note.
+    borderColor: interpolateColor(
+      focusAnim.value,
+      [0, 1],
+      ["transparent", "#FFE45E"],
+    ),
+    shadowOpacity: focusAnim.value * 0.7,
+    elevation: focusAnim.value * 10,
   }));
 
   return (
     <Pressable focusable isTVSelectable onFocus={onFocus} onPress={onPress}>
-      <Animated.View style={[styles.menuButton, variant === 'primary' && styles.menuButtonPrimary, animatedStyle]}>
-        <Text style={[styles.menuText, { fontSize: 16 * fontScale }]}>{label}</Text>
+      <Animated.View
+        style={[
+          styles.menuButton,
+          variant === "primary" && styles.menuButtonPrimary,
+          animatedStyle,
+        ]}
+      >
+        <Text style={[styles.menuText, { fontSize: 16 * fontScale }]}>
+          {label}
+        </Text>
       </Animated.View>
     </Pressable>
   );
 }
 
-/* ─────────────────────────── Option selector (Speed / Layout) ─────────────────────────── */
-
-function OptionSelector({ label, fontScale, options, selectedIndex, isFocused, onFocus, onLeft, onRight }) {
+function OptionSelector({
+  label,
+  fontScale,
+  options,
+  selectedIndex,
+  isFocused,
+  onFocus,
+  onLeft,
+  onRight,
+}) {
   const focusAnim = useSharedValue(0);
 
   useEffect(() => {
@@ -468,15 +668,21 @@ function OptionSelector({ label, fontScale, options, selectedIndex, isFocused, o
   }, [isFocused]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    borderColor: focusAnim.value > 0.05 ? '#FFE45E' : 'transparent',
-    shadowOpacity: 0.2 + focusAnim.value * 0.5,
-    elevation: 3 + focusAnim.value * 10,
+    borderColor: interpolateColor(
+      focusAnim.value,
+      [0, 1],
+      ["transparent", "#FFE45E"],
+    ),
+    shadowOpacity: focusAnim.value * 0.7,
+    elevation: focusAnim.value * 10,
   }));
 
   return (
     <Pressable focusable isTVSelectable onFocus={onFocus}>
       <Animated.View style={[styles.selectorRow, animatedStyle]}>
-        <Text style={[styles.selectorLabel, { fontSize: 13 * fontScale }]}>{label}</Text>
+        <Text style={[styles.selectorLabel, { fontSize: 13 * fontScale }]}>
+          {label}
+        </Text>
         <View style={styles.selectorControls}>
           <Pressable
             focusable
@@ -485,9 +691,15 @@ function OptionSelector({ label, fontScale, options, selectedIndex, isFocused, o
             onPress={onLeft}
             style={styles.selectorArrow}
           >
-            <Text style={[styles.selectorArrowText, { fontSize: 16 * fontScale }]}>‹</Text>
+            <Text
+              style={[styles.selectorArrowText, { fontSize: 16 * fontScale }]}
+            >
+              ‹
+            </Text>
           </Pressable>
-          <Text style={[styles.selectorValue, { fontSize: 15 * fontScale }]}>{options[selectedIndex].label}</Text>
+          <Text style={[styles.selectorValue, { fontSize: 15 * fontScale }]}>
+            {options[selectedIndex].label}
+          </Text>
           <Pressable
             focusable
             isTVSelectable
@@ -495,7 +707,11 @@ function OptionSelector({ label, fontScale, options, selectedIndex, isFocused, o
             onPress={onRight}
             style={styles.selectorArrow}
           >
-            <Text style={[styles.selectorArrowText, { fontSize: 16 * fontScale }]}>›</Text>
+            <Text
+              style={[styles.selectorArrowText, { fontSize: 16 * fontScale }]}
+            >
+              ›
+            </Text>
           </Pressable>
         </View>
       </Animated.View>
@@ -503,32 +719,41 @@ function OptionSelector({ label, fontScale, options, selectedIndex, isFocused, o
   );
 }
 
-/* ─────────────────────────── Styles ─────────────────────────── */
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#150a24',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#150a24",
+    alignItems: "center",
+    justifyContent: "center",
     padding: 20,
     gap: 10,
   },
+  highScoreText:{color:"white"},
+  backgroundImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: "100%",
+    height: "100%",
+    opacity: 0.85,
+  },
+  darkOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(6, 9, 19, 0.45)",
+  },
   menu: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: 14,
-    paddingHorizontal: '6%',
-    width: '100%',
+    paddingHorizontal: "6%",
+    width: "100%",
     maxWidth: 420,
   },
   title: {
-    fontWeight: 'bold',
-    color: '#FFE45E',
+    fontWeight: "bold",
+    color: "#FFE45E",
     letterSpacing: 0.5,
   },
   subtitle: {
-    color: '#c4b5fd',
-    textAlign: 'center',
+    color: "#c4b5fd",
+    textAlign: "center",
     marginBottom: 6,
   },
   menuButton: {
@@ -536,82 +761,82 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     borderRadius: 14,
     borderWidth: 2,
-    backgroundColor: '#3b1d5c',
-    shadowColor: '#FFE45E',
+    backgroundColor: "#3b1d5c",
+    shadowColor: "#FFE45E",
     shadowOffset: { width: 0, height: 0 },
     minWidth: 200,
-    alignItems: 'center',
+    alignItems: "center",
   },
   menuButtonPrimary: {
-    backgroundColor: '#5B21B6',
+    backgroundColor: "#5B21B6",
   },
   menuText: {
-    color: '#f8fafc',
-    fontWeight: 'bold',
+    color: "#f8fafc",
+    fontWeight: "bold",
   },
   selectorRow: {
-    width: '100%',
+    width: "100%",
     minWidth: 260,
     borderRadius: 14,
     borderWidth: 2,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: "rgba(255,255,255,0.06)",
     paddingVertical: 10,
     paddingHorizontal: 16,
-    shadowColor: '#FFE45E',
+    shadowColor: "#FFE45E",
     shadowOffset: { width: 0, height: 0 },
     gap: 6,
   },
   selectorLabel: {
-    color: '#c4b5fd',
-    fontWeight: '600',
+    color: "#c4b5fd",
+    fontWeight: "600",
     letterSpacing: 0.5,
   },
   selectorControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   selectorArrow: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#3b1d5c',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#3b1d5c",
+    alignItems: "center",
+    justifyContent: "center",
   },
   selectorArrowText: {
-    color: '#FFE45E',
-    fontWeight: 'bold',
+    color: "#FFE45E",
+    fontWeight: "bold",
   },
   selectorValue: {
-    color: '#f8fafc',
-    fontWeight: '700',
+    color: "#f8fafc",
+    fontWeight: "700",
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
   },
   hud: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 18,
     marginBottom: 6,
   },
   stat: {
-    alignItems: 'center',
+    alignItems: "center",
     minWidth: 56,
   },
   statLabel: {
-    color: '#a78bfa',
-    fontWeight: '600',
+    color: "#a78bfa",
+    fontWeight: "600",
     letterSpacing: 0.5,
   },
   statValue: {
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginTop: 2,
   },
   levelUpBanner: {
-    position: 'absolute',
-    top: '38%',
-    backgroundColor: 'rgba(250,204,21,0.15)',
-    borderColor: '#facc15',
+    position: "absolute",
+    top: "38%",
+    backgroundColor: "rgba(250,204,21,0.15)",
+    borderColor: "#facc15",
     borderWidth: 2,
     borderRadius: 999,
     paddingHorizontal: 24,
@@ -619,30 +844,54 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   levelUpText: {
-    color: '#facc15',
-    fontWeight: '900',
+    color: "#facc15",
+    fontWeight: "900",
     letterSpacing: 1,
   },
   board: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.04)",
     borderRadius: 16,
     padding: 8,
   },
   crossBoard: {
-    flexDirection: 'column',
-    flexWrap: 'nowrap',
+    flexDirection: "column",
+    flexWrap: "nowrap",
   },
   crossRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   tip: {
-    color: '#94a3b8',
+    color: "#94a3b8",
     marginTop: 6,
   },
+  gameOverCard: {
+    alignItems: "center",
+    gap: 14,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 20,
+    padding: 28,
+    width: "100%",
+    maxWidth: 420,
+  },
+  newRecordBadge: {
+    backgroundColor: "rgba(250,204,21,0.15)",
+    borderColor: "#facc15",
+    borderWidth: 2,
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 6,
+  },
+  newRecordText: { color: "#facc15", fontWeight: "900", letterSpacing: 1 },
+  scoreRow: { flexDirection: "row", gap: 32, marginTop: 6 },
+  scoreBlock: { alignItems: "center" },
+  scoreBlockLabel: { color: "#a78bfa", fontWeight: "600" },
+  scoreBlockValue: { color: "#f8fafc", fontWeight: "900", marginTop: 2 },
+  levelReached: { color: "#cbd5e1" },
+  gameOverButtonRow: { flexDirection: "row", gap: 12, marginTop: 10 },
 });

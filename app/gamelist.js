@@ -14,7 +14,7 @@ import Animated, {
   interpolateColor,
 } from "react-native-reanimated";
 import React, { useState, useCallback, useEffect } from "react";
-import { useNavigation } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import { useControllerNav } from "../hooks/useControllerNav";
 import backgroundImageAsset from "../assets/images/gameboxUI.png";
 
@@ -66,7 +66,7 @@ const games = [
 const FOCUS_SPRING = { damping: 10, stiffness: 180, mass: 0.6 };
 
 export default function GameList() {
-  const navigation = useNavigation();
+  const router = useRouter();
   const { width } = useWindowDimensions();
 
   const [focusedIndex, setFocusedIndex] = useState(0);
@@ -114,9 +114,9 @@ export default function GameList() {
   }, [backButtonIndex, numColumns, totalItems]);
 
   const handleSelect = useCallback(() => {
-    if (focusedIndex === backButtonIndex) navigation.navigate("index");
+    if (focusedIndex === backButtonIndex) router.push("/");
     else if (games[focusedIndex])
-      navigation.navigate(games[focusedIndex].route);
+      router.push(games[focusedIndex].route);
   }, [focusedIndex, backButtonIndex, navigation]);
 
   useControllerNav({
@@ -166,7 +166,7 @@ export default function GameList() {
                 numColumns={numColumns}
                 isFocused={focusedIndex === index}
                 onFocus={() => setFocusedIndex(index)}
-                onPress={() => navigation.navigate(item.route)}
+                onPress={() => router.push(item.route)}
               />
             ))}
           </View>
@@ -177,7 +177,7 @@ export default function GameList() {
             isTabletOrTV={isTabletOrTV}
             isFocused={focusedIndex === backButtonIndex}
             onFocus={() => setFocusedIndex(backButtonIndex)}
-            onPress={() => navigation.navigate("index")}
+            onPress={() => router.push("/")}
           />
         </View>
       </View>

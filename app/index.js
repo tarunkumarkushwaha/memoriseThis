@@ -13,14 +13,14 @@ import Animated, {
   withSpring,
   interpolateColor,
 } from "react-native-reanimated";
-import { useNavigation } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import { useControllerNav } from "../hooks/useControllerNav";
 import backgroundImageAsset from "../assets/images/gameboxUI.png";
 
 const FOCUS_SPRING = { damping: 10, stiffness: 180, mass: 0.6 };
 
 export default function HomeScreen() {
-  const navigation = useNavigation();
+  const router = useRouter();
   const { width } = useWindowDimensions();
 
   const [focusedIndex, setFocusedIndex] = useState(0); // 0: Start, 1: About
@@ -35,8 +35,8 @@ export default function HomeScreen() {
     setFocusedIndex((prev) => (prev < 1 ? prev + 1 : prev));
   }, []);
   const handleSelect = useCallback(() => {
-    if (focusedIndex === 0) navigation.navigate("gamelist");
-    else if (focusedIndex === 1) navigation.navigate("about");
+    if (focusedIndex === 0) router.push("/gamelist");
+    else if (focusedIndex === 1) router.push("/about");
   }, [focusedIndex, navigation]);
 
   useControllerNav({
@@ -86,7 +86,7 @@ export default function HomeScreen() {
             isTabletOrTV={isTabletOrTV}
             isFocused={focusedIndex === 0}
             onFocus={() => setFocusedIndex(0)}
-            onPress={() => navigation.navigate("gamelist")}
+            onPress={() => router.push("/gamelist")}
           />
           <NavButton
             label="About Play OTG"
@@ -94,7 +94,7 @@ export default function HomeScreen() {
             isTabletOrTV={isTabletOrTV}
             isFocused={focusedIndex === 1}
             onFocus={() => setFocusedIndex(1)}
-            onPress={() => navigation.navigate("about")}
+            onPress={() => router.push("/about")}
           />
         </View>
       </View>
