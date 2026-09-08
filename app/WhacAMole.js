@@ -35,7 +35,7 @@ const BOUNCE_SPRING = { damping: 8, stiffness: 220, mass: 0.5 };
 const HIGH_SCORE_KEY = "whacamole_highscore";
 
 const SPEEDS = [
-  { id: "dumb", label: "Dumb", speed: 1200 },
+  { id: "dumb", label: "Dumb", speed: 1800 },
   { id: "ultra-easy", label: "Ultra Easy", speed: 1000 },
   { id: "easy", label: "Easy", speed: 850 },
   { id: "normal", label: "Normal", speed: 700 },
@@ -46,9 +46,6 @@ const SPEEDS = [
 ];
 
 const LAYOUTS = [
-  // Cross layout: exactly 4 holes, one per D-pad direction. A direction
-  // press hits DIRECTLY (see handleDirection below) rather than just
-  // moving focus — matching a real remote 1:1.
   {
     id: "2x2",
     label: "2 × 2 (Remote)",
@@ -96,7 +93,7 @@ export default function WhacAMole() {
   const isLarge = Platform.isTV || width >= 1000;
   const fontScale = isLarge ? 1.5 : 1;
 
-  const [phase, setPhase] = useState("setup"); // setup | playing | over
+  const [phase, setPhase] = useState("setup");
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
   const [timeLeft, setTimeLeft] = useState(60);
@@ -132,7 +129,8 @@ export default function WhacAMole() {
   const prevLevelRef = useRef(1);
 
   const hitPlayer = useAudioPlayer(require("../assets/music/click.mp3"));
-  const missPlayer = useAudioPlayer(require("../assets/music/gameover.mp3"));
+  const movePlayer = useAudioPlayer(require("../assets/music/move.mp3"));
+  const missPlayer = useAudioPlayer(require("../assets/music/miss2.mp3"));
   const levelUpPlayer = useAudioPlayer(require("../assets/music/next.mp3"));
 
   const play = useCallback((player) => {
@@ -179,7 +177,7 @@ export default function WhacAMole() {
 
   const exitApp = () => {
     clearGame();
-    router.back();;
+    router.back();
   };
 
   const endGame = useCallback(
@@ -237,6 +235,7 @@ export default function WhacAMole() {
       const picks = new Set();
       while (picks.size < simultaneousCount) {
         picks.add(Math.floor(Math.random() * holeCount));
+        play(movePlayer);
       }
       setActiveMoles([...picks]);
     }, effectiveSpeed);
@@ -624,7 +623,6 @@ function MenuButton({
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-    // interpolateColor, not a raw ternary — see header note.
     borderColor: interpolateColor(
       focusAnim.value,
       [0, 1],
@@ -728,7 +726,7 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 10,
   },
-  highScoreText:{color:"white"},
+  highScoreText: { color: "white" },
   backgroundImage: {
     ...StyleSheet.absoluteFillObject,
     width: "100%",

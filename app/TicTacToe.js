@@ -1,27 +1,30 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { StyleSheet, Text, View, Pressable, useWindowDimensions, Platform } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  View,
+  Pressable,
+  useWindowDimensions,
+  Platform,
+} from "react-native";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import { useAudioPlayer } from "expo-audio";
-import {
-  MaterialCommunityIcons
-} from "@expo/vector-icons";
-import {
-  Ionicons,
-} from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useControllerNav } from "../hooks/useControllerNav";
 
 const WIN_LINES = [
-  [0, 1, 2], [3, 4, 5], [6, 7, 8],
-  [0, 3, 6], [1, 4, 7], [2, 5, 8],
-  [0, 4, 8], [2, 4, 6],
+  [0, 1, 2],
+  [3, 4, 5],
+  [6, 7, 8],
+  [0, 3, 6],
+  [1, 4, 7],
+  [2, 5, 8],
+  [0, 4, 8],
+  [2, 4, 6],
 ];
 
-// Top row now reaches Exit via `up` (it renders at the top of the
-// screen); bottom row reaches New Round / Reset Score via `down` (they
-// render below the board) — previously cell6's `down` pointed at the
-// Exit button despite Exit being rendered above the board, and the top
-// row had no `up` mapping at all.
 const GRID_MAP = {
   0: { right: 1, down: 3, up: "btn-back" },
   1: { left: 0, right: 2, down: 4, up: "btn-back" },
@@ -53,8 +56,8 @@ export default function TicTacToe() {
   const boardSize = isTV
     ? Math.min(500, height * 0.5)
     : isTabletOrTV
-    ? Math.min(420, height * 0.48)
-    : Math.min(320, width * 0.85);
+      ? Math.min(420, height * 0.48)
+      : Math.min(320, width * 0.85);
 
   const cellSize = boardSize / 3 - (isTabletOrTV ? 12 : 8);
 
@@ -76,6 +79,7 @@ export default function TicTacToe() {
 
   const movePlayer = useAudioPlayer(require("../assets/music/move.mp3"));
   const win = useAudioPlayer(require("../assets/music/win1.mp3"));
+  const wrong = useAudioPlayer(require("../assets/music/wrong.mp3"));
 
   const play = useCallback((player) => {
     try {
@@ -91,7 +95,10 @@ export default function TicTacToe() {
     return null;
   }, []);
 
-  const isDraw = useCallback((b) => b.every(Boolean) && !checkWinner(b), [checkWinner]);
+  const isDraw = useCallback(
+    (b) => b.every(Boolean) && !checkWinner(b),
+    [checkWinner],
+  );
 
   // Non-mutating minimax — operates on fresh copies rather than mutating
   // the shared array in place.
@@ -123,7 +130,7 @@ export default function TicTacToe() {
       }
       return best;
     },
-    [checkWinner]
+    [checkWinner],
   );
 
   const bestMove = useCallback(
@@ -143,7 +150,7 @@ export default function TicTacToe() {
       }
       return move;
     },
-    [minimax]
+    [minimax],
   );
 
   const checkAndFinishGame = useCallback(
@@ -151,7 +158,11 @@ export default function TicTacToe() {
       const w = checkWinner(nextBoard);
       if (w) {
         setWinner(w);
-        play(win);
+        if (mode === "cpu") {
+          play(wrong);
+        } else {
+          play(win);
+        }
         if (w === "X") setScoreX((s) => s + 1);
         else setScoreO((s) => s + 1);
         return true;
@@ -163,7 +174,7 @@ export default function TicTacToe() {
       }
       return false;
     },
-    [checkWinner, isDraw, play, win]
+    [checkWinner, isDraw, play, win],
   );
 
   const makeMove = useCallback(
@@ -179,12 +190,9 @@ export default function TicTacToe() {
       }
       return { ended, nextBoard };
     },
-    [board, checkAndFinishGame, play, movePlayer]
+    [board, checkAndFinishGame, play, movePlayer],
   );
 
-  // CPU move trigger. `isCpuThinking` is intentionally NOT a dependency
-  // here — see header note on why including it caused the effect to
-  // cancel its own timer.
   useEffect(() => {
     if (started && mode === "cpu" && current === "O" && !winner && !draw) {
       setIsCpuThinking(true);
@@ -196,7 +204,6 @@ export default function TicTacToe() {
 
       return () => clearTimeout(timer);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [started, mode, current, winner, draw, board]);
 
   const playCell = (index) => {
@@ -227,16 +234,16 @@ export default function TicTacToe() {
     setMenuFocus("start");
   };
 
-  // Handles focus transitions BETWEEN the board and the surrounding
-  // buttons explicitly per-button, rather than one generic "up always
-  // goes to cell 6" branch — that generic branch was the source of the
-  // Exit-button topology bug (see header note).
   const moveGrid = (dir) => {
     if (gameControlFocus !== "cell") {
       if (gameControlFocus === "btn-back" && dir === "down") {
         setGameControlFocus("cell");
         setFocusCell(1);
-      } else if ((gameControlFocus === "btn-round" || gameControlFocus === "btn-reset") && dir === "up") {
+      } else if (
+        (gameControlFocus === "btn-round" ||
+          gameControlFocus === "btn-reset") &&
+        dir === "up"
+      ) {
         setGameControlFocus("cell");
         setFocusCell(7);
       }
@@ -268,7 +275,8 @@ export default function TicTacToe() {
         else if (menuFocus === "mode-hotseat") setMode("cpu");
       } else {
         if (gameControlFocus === "btn-round") setGameControlFocus("btn-back");
-        else if (gameControlFocus === "btn-reset") setGameControlFocus("btn-round");
+        else if (gameControlFocus === "btn-reset")
+          setGameControlFocus("btn-round");
         else moveGrid("left");
       }
     },
@@ -279,7 +287,8 @@ export default function TicTacToe() {
         else if (menuFocus === "mode-cpu") setMode("hotseat");
       } else {
         if (gameControlFocus === "btn-back") setGameControlFocus("btn-round");
-        else if (gameControlFocus === "btn-round") setGameControlFocus("btn-reset");
+        else if (gameControlFocus === "btn-round")
+          setGameControlFocus("btn-reset");
         else moveGrid("right");
       }
     },
@@ -306,8 +315,12 @@ export default function TicTacToe() {
     return (
       <View style={styles.container}>
         <Animated.View entering={FadeIn.duration(400)} style={styles.menuCard}>
-          <Text style={[styles.title, isTabletOrTV && styles.titleLarge]}>Tic-Tac-Toe</Text>
-          <Text style={[styles.subtitle, isTabletOrTV && styles.subtitleLarge]}>Choose mode & get ready</Text>
+          <Text style={[styles.title, isTabletOrTV && styles.titleLarge]}>
+            Tic-Tac-Toe
+          </Text>
+          <Text style={[styles.subtitle, isTabletOrTV && styles.subtitleLarge]}>
+            Choose mode & get ready
+          </Text>
 
           <View style={styles.modeBox}>
             <Text style={styles.modeTitle}>SELECT GAME MODE</Text>
@@ -318,9 +331,17 @@ export default function TicTacToe() {
                 isTVSelectable
                 onFocus={() => setMenuFocus("mode-cpu")}
                 onPress={() => setMode("cpu")}
-                style={[styles.modeOption, mode === "cpu" && styles.modeActive, menuFocus === "mode-cpu" && styles.focusBtn]}
+                style={[
+                  styles.modeOption,
+                  mode === "cpu" && styles.modeActive,
+                  menuFocus === "mode-cpu" && styles.focusBtn,
+                ]}
               >
-                <MaterialCommunityIcons name="robot-outline" size={20} color="#f8fafc" />
+                <MaterialCommunityIcons
+                  name="robot-outline"
+                  size={20}
+                  color="#f8fafc"
+                />
                 <Text style={styles.modeText}>Vs CPU</Text>
               </Pressable>
 
@@ -329,7 +350,11 @@ export default function TicTacToe() {
                 isTVSelectable
                 onFocus={() => setMenuFocus("mode-hotseat")}
                 onPress={() => setMode("hotseat")}
-                style={[styles.modeOption, mode === "hotseat" && styles.modeActive, menuFocus === "mode-hotseat" && styles.focusBtn]}
+                style={[
+                  styles.modeOption,
+                  mode === "hotseat" && styles.modeActive,
+                  menuFocus === "mode-hotseat" && styles.focusBtn,
+                ]}
               >
                 <Ionicons name="people" size={20} color="#f8fafc" />
                 <Text style={styles.modeText}>2 Player</Text>
@@ -346,7 +371,11 @@ export default function TicTacToe() {
               setStarted(true);
               setGameControlFocus("cell");
             }}
-            style={[styles.menuBtn, styles.startBtn, menuFocus === "start" && styles.focusBtn]}
+            style={[
+              styles.menuBtn,
+              styles.startBtn,
+              menuFocus === "start" && styles.focusBtn,
+            ]}
           >
             <Text style={styles.startBtnText}>Start Game</Text>
           </Pressable>
@@ -356,7 +385,11 @@ export default function TicTacToe() {
             isTVSelectable
             onFocus={() => setMenuFocus("back")}
             onPress={() => router.back()}
-            style={[styles.menuBtn, styles.backBtn, menuFocus === "back" && styles.focusBtn]}
+            style={[
+              styles.menuBtn,
+              styles.backBtn,
+              menuFocus === "back" && styles.focusBtn,
+            ]}
           >
             <Text style={styles.menuText}>Back to Menu</Text>
           </Pressable>
@@ -373,7 +406,10 @@ export default function TicTacToe() {
           isTVSelectable
           onFocus={() => setGameControlFocus("btn-back")}
           onPress={exitToMenu}
-          style={[styles.headerBackBtn, gameControlFocus === "btn-back" && styles.focusBtn]}
+          style={[
+            styles.headerBackBtn,
+            gameControlFocus === "btn-back" && styles.focusBtn,
+          ]}
         >
           <Text style={styles.headerBackText}>Exit</Text>
         </Pressable>
@@ -385,8 +421,12 @@ export default function TicTacToe() {
             color="#c4b5fd"
             style={mode !== "cpu" && { display: "none" }}
           />
-          {mode !== "cpu" && <Ionicons name="people" size={14} color="#c4b5fd" />}
-          <Text style={styles.modeBadgeText}>{mode === "cpu" ? " vs CPU" : " 2-Player"}</Text>
+          {mode !== "cpu" && (
+            <Ionicons name="people" size={14} color="#c4b5fd" />
+          )}
+          <Text style={styles.modeBadgeText}>
+            {mode === "cpu" ? " vs CPU" : " 2-Player"}
+          </Text>
         </View>
       </View>
 
@@ -400,7 +440,9 @@ export default function TicTacToe() {
           <Text style={styles.scoreValue}>{scoreDraw}</Text>
         </View>
         <View style={styles.scoreCard}>
-          <Text style={styles.scoreLabel}>{mode === "cpu" ? "CPU (O)" : "Player O"}</Text>
+          <Text style={styles.scoreLabel}>
+            {mode === "cpu" ? "CPU (O)" : "Player O"}
+          </Text>
           <Text style={styles.scoreValue}>{scoreO}</Text>
         </View>
       </View>
@@ -410,18 +452,21 @@ export default function TicTacToe() {
           ? winner === "X"
             ? "🎉 Player X Wins!"
             : mode === "cpu"
-            ? "🤖 CPU Wins!"
-            : "🎉 Player O Wins!"
+              ? "🤖 CPU Wins!"
+              : "🎉 Player O Wins!"
           : draw
-          ? "🤝 Game Draw!"
-          : isCpuThinking
-          ? "🤖 CPU is thinking..."
-          : mode === "cpu"
-          ? "Your Turn (X)"
-          : `${current}'s Turn`}
+            ? "🤝 Game Draw!"
+            : isCpuThinking
+              ? "🤖 CPU is thinking..."
+              : mode === "cpu"
+                ? "Your Turn (X)"
+                : `${current}'s Turn`}
       </Text>
 
-      <Animated.View entering={FadeInDown.duration(300)} style={[styles.board, { width: boardSize, height: boardSize }]}>
+      <Animated.View
+        entering={FadeInDown.duration(300)}
+        style={[styles.board, { width: boardSize, height: boardSize }]}
+      >
         {board.map((value, index) => {
           const isFocused = gameControlFocus === "cell" && focusCell === index;
           return (
@@ -434,7 +479,11 @@ export default function TicTacToe() {
                 setFocusCell(index);
               }}
               onPress={() => playCell(index)}
-              style={[styles.cell, { width: cellSize, height: cellSize }, isFocused && styles.cellFocus]}
+              style={[
+                styles.cell,
+                { width: cellSize, height: cellSize },
+                isFocused && styles.cellFocus,
+              ]}
             >
               <Text
                 style={[
@@ -457,7 +506,10 @@ export default function TicTacToe() {
           isTVSelectable
           onFocus={() => setGameControlFocus("btn-round")}
           onPress={resetBoard}
-          style={[styles.bottomBtn, gameControlFocus === "btn-round" && styles.focusBtn]}
+          style={[
+            styles.bottomBtn,
+            gameControlFocus === "btn-round" && styles.focusBtn,
+          ]}
         >
           <Text style={styles.bottomText}>New Round</Text>
         </Pressable>
@@ -467,7 +519,11 @@ export default function TicTacToe() {
           isTVSelectable
           onFocus={() => setGameControlFocus("btn-reset")}
           onPress={resetScore}
-          style={[styles.bottomBtn, styles.resetBtn, gameControlFocus === "btn-reset" && styles.focusBtn]}
+          style={[
+            styles.bottomBtn,
+            styles.resetBtn,
+            gameControlFocus === "btn-reset" && styles.focusBtn,
+          ]}
         >
           <Text style={styles.bottomText}>Reset Score</Text>
         </Pressable>
