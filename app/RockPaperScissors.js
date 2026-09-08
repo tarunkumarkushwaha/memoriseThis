@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Platform,
   Image,
+  ImageBackground,
   ScrollView,
   useWindowDimensions,
 } from "react-native";
@@ -160,11 +161,11 @@ export default function RockPaperScissors() {
 
   return (
     <View style={styles.mainContainer}>
-      <Image
+      {/* <Image
         source={backgroundImageAsset}
         style={styles.backgroundImage}
         resizeMode="cover"
-      />
+      /> */}
       <View style={styles.darkOverlay} />
 
       <ScrollView
@@ -194,7 +195,6 @@ export default function RockPaperScissors() {
             Rock Paper Scissors
           </Animated.Text>
 
-          {/* Difficulty Segmented Toggle */}
           <DifficultyToggle
             difficulty={difficulty}
             fontScale={fontScale}
@@ -205,7 +205,6 @@ export default function RockPaperScissors() {
             }
           />
 
-          {/* Choices Row */}
           <View style={styles.choicesRow}>
             {CHOICES.map((choice) => (
               <ChoiceCard
@@ -220,7 +219,6 @@ export default function RockPaperScissors() {
             ))}
           </View>
 
-          {/* Battle Arena Reveal */}
           {result !== "" && (
             <Animated.View
               entering={FadeInDown.duration(350)}
@@ -256,7 +254,6 @@ export default function RockPaperScissors() {
             </Animated.View>
           )}
 
-          {/* Result Chip */}
           {result !== "" && (
             <Animated.View
               key={round}
@@ -274,7 +271,6 @@ export default function RockPaperScissors() {
             </Animated.View>
           )}
 
-          {/* Score Box */}
           <View style={styles.scoreBox}>
             <ScorePill
               label="Win"
@@ -296,7 +292,6 @@ export default function RockPaperScissors() {
             />
           </View>
 
-          {/* Action Buttons */}
           <View style={styles.actionButtonGroup}>
             <FocusableButton
               id="reset"
@@ -322,8 +317,6 @@ export default function RockPaperScissors() {
     </View>
   );
 }
-
-/* ─────────────────────────── Difficulty segmented toggle ─────────────────────────── */
 
 function DifficultyToggle({
   difficulty,
@@ -378,8 +371,6 @@ function DifficultyToggle({
     </Pressable>
   );
 }
-
-/* ─────────────────────────── Choice card (rock / paper / scissors) ─────────────────────────── */
 
 function ChoiceCard({
   choice,
@@ -442,8 +433,6 @@ function ChoiceCard({
   );
 }
 
-/* ─────────────────────────── Battle-reveal icon ─────────────────────────── */
-
 function RevealIcon({ meta, status, roundKey, fontScale }) {
   const scale = useSharedValue(0.5);
   const shakeX = useSharedValue(0);
@@ -496,8 +485,6 @@ function RevealIcon({ meta, status, roundKey, fontScale }) {
   );
 }
 
-/* ─────────────────────────── Score pill ─────────────────────────── */
-
 function ScorePill({ label, value, color, fontScale }) {
   const scale = useSharedValue(1);
 
@@ -525,8 +512,6 @@ function ScorePill({ label, value, color, fontScale }) {
     </Animated.View>
   );
 }
-
-/* ─────────────────────────── Reusable focusable button ─────────────────────────── */
 
 function FocusableButton({
   id,
@@ -776,7 +761,7 @@ const styles = StyleSheet.create({
   /* Action Buttons */
   actionButtonGroup: {
     display: "flex",
-    flexDirection: "row",
+    flexDirection: "column",
     justifyContent: "center",
     alignItems: "center",
     // width: "100%",

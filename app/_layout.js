@@ -5,8 +5,9 @@ export default function Layout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        animation: 'slide_from_right',
-        animationDuration: 300,
+        // animation: 'slide_from_right',
+        // animationDuration: 300,
+        animation: "none",
       }}
     >
       {/* <Stack.Screen name="index" options={{ title: 'Home' }} />

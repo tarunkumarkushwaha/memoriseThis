@@ -27,7 +27,7 @@ export default function AboutScreen() {
 
   const handleSelect = useCallback(() => {
     router.back();
-  }, [navigation]);
+  }, [router]);
 
   useControllerNav({
     onSelect: handleSelect,
@@ -35,11 +35,11 @@ export default function AboutScreen() {
 
   return (
     <View style={styles.mainContainer}>
-      <Image
+      {/* <Image
         source={backgroundImageAsset}
         style={styles.backgroundImage}
         resizeMode="cover"
-      />
+      /> */}
       <View style={styles.darkOverlay} />
       <View
         style={[

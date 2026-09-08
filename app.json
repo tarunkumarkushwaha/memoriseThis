@@ -30,6 +30,13 @@
           "resizeMode": "contain",
           "backgroundColor": "#171616"
         }
+      ],
+      [
+        "@react-native-tvos/config-tv",
+        {
+          "isTV": true,
+          "androidTVBanner": "./assets/images/gamebox.png"
+        }
       ]
     ],
     "extra": {

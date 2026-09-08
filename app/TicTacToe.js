@@ -583,7 +583,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 
-  /* In-Game Navigation & Header */
+  /* In-Game router & Header */
   topNavRow: {
     flexDirection: "row",
     justifyContent: "space-between",

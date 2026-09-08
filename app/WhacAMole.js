@@ -332,11 +332,11 @@ export default function WhacAMole() {
   if (phase === "setup") {
     return (
       <View style={styles.container}>
-        <Image
+        {/* <Image
           source={backgroundImageAsset}
           style={styles.backgroundImage}
           resizeMode="cover"
-        />
+        /> */}
         <View style={styles.darkOverlay} />
         <Animated.View entering={FadeIn.duration(500)} style={styles.menu}>
           <Text style={[styles.title, { fontSize: 20 * fontScale }]}>

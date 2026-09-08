@@ -1,41 +1,43 @@
 {
   "expo": {
-    "name": "quizotgandroid",
-    "slug": "quizotgandroid",
-    "scheme": "quizotgandroid-scheme",
-    "version": "2.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/images/quizotgappicon.png",
-    "userInterfaceStyle": "light",
+    "name": "QuizOTG",
+    "slug": "quizotgandroidtv",
+    "version": "4.0.1",
+    "scheme": "quizotgandroidtv-scheme",
+    "orientation": "landscape",
+    "icon": "./assets/images/splashscreen.png",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/quizotgappicon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#D3D3D3"
-    },
-    "ios": {
-      "supportsTablet": true
+      "image": "./assets/images/splashscreen.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#0f172a"
     },
     "android": {
+      "package": "com.tarun_kumar_kushwaha.quizotgandroidtv",
+      "versionCode": 2,
+      "banner": "./assets/images/tv-banner.png",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/quizotgappicon.png",
-        "backgroundColor": "#D3D3D3"
+        "foregroundImage": "./assets/images/AdaptiveIcon.png",
+        "backgroundColor": "#0f172a"
       },
       "usesCleartextTraffic": true,
-      "package": "com.tarun_kumar_kushwaha.quizotgandroid"
-    },
-    "web": {
-      "bundler": "metro"
+      "softwareKeyboardLayoutMode": "pan"
     },
     "plugins": [
+      [
+        "@react-native-tvos/config-tv",
+        {
+          "isTV": true,
+          "androidTVBanner": "./assets/images/tv-banner.png"
+        }
+      ],
       "expo-router"
     ],
     "extra": {
-      "router": {
-        "origin": false
-      },
+      "router": {},
       "eas": {
-        "projectId": "1fd916bf-bb14-45a8-a5cd-91b0e246885d"
+        "projectId": "1df3a9ff-a0b7-469b-9418-3c0f0dd74599"
       }
     }
   }

@@ -9,6 +9,7 @@ import {
   Vibration,
   Platform,
   useWindowDimensions,
+  ImageBackground,
 } from "react-native";
 import Animated, {
   useSharedValue,
@@ -21,6 +22,7 @@ import Animated, {
 import { useAudioPlayer } from "expo-audio";
 import { useRouter } from "expo-router";
 import { useControllerNav } from "../hooks/useControllerNav.js";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const BOUNCE_SPRING = { damping: 7, stiffness: 220, mass: 0.5 };
 const FOCUS_SPRING = { damping: 10, stiffness: 180, mass: 0.6 };
@@ -45,7 +47,7 @@ export default function CracoTeethGame() {
   const [winNo, setWinNo] = useState([]);
   const [round, setRound] = useState(0);
   const [focusedId, setFocusedId] = useState("start");
-
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isLargeScreen = Platform.isTV || width >= 1024;
@@ -59,9 +61,7 @@ export default function CracoTeethGame() {
     try {
       audioPlayer.seekTo(0);
       audioPlayer.play();
-    } catch (e) {
-      // Never let a network/audio hiccup block gameplay.
-    }
+    } catch (e) {}
   }, []);
 
   const startGame = () => {
@@ -96,7 +96,7 @@ export default function CracoTeethGame() {
       setGame(false);
       playSound(chompPlayer);
       Vibration.vibrate(80);
-      Alert.alert("Chomp!", "You lost!");
+      // Alert.alert("Chomp!", "You lost!");
     }
   };
 
@@ -105,9 +105,8 @@ export default function CracoTeethGame() {
       setWin(true);
       setGame(false);
       playSound(winPlayer);
-      Alert.alert("Congratulations!", "You won the game!");
+      // Alert.alert("Congratulations!", "You won the game!");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [winNo]);
 
   const goBackToMenu = () => router.push("/gamelist");
@@ -169,125 +168,136 @@ export default function CracoTeethGame() {
   });
 
   return (
-    <View style={styles.container}>
-      <Image
+    <>
+      <ImageBackground
         source={require("../assets/images/craco.png")}
-        style={styles.backgroundImage}
-        resizeMode="cover"
-      />
+        style={styles.mainContainer}
+        imageStyle={styles.backgroundImageInner}
+        // resizeMode="cover"
+      >
+        <View style={styles.darkOverlay} />
+        <Text style={[styles.title, { fontSize: 24 * fontScale }]}>
+          Crocodile Dentist Game
+        </Text>
 
-      <Text style={[styles.title, { fontSize: 28 * fontScale }]}>
-        Crocodile Dentist Game
-      </Text>
-
-      {!game && !lose && !win && (
-        <Animated.View entering={FadeIn.duration(300)} style={styles.setupCard}>
-          <Text style={[styles.setupLabel, { fontSize: 14 * fontScale }]}>
-            Number of Teeth
-          </Text>
-          <View style={styles.stepperRow}>
-            <StepperButton
-              id="minus"
-              symbol="−"
-              fontScale={fontScale}
-              isFocused={focusedId === "minus"}
-              onFocusId={setFocusedId}
-              onPress={() => noOfTeeth > 2 && setNoOfTeeth(noOfTeeth - 1)}
-            />
-            <Text style={[styles.teethCount, { fontSize: 26 * fontScale }]}>
-              {noOfTeeth}
+        {!game && !lose && !win && (
+          <Animated.View
+            entering={FadeIn.duration(300)}
+            style={styles.setupCard}
+          >
+            <Text style={[styles.setupLabel, { fontSize: 14 * fontScale }]}>
+              Number of Teeth
             </Text>
-            <StepperButton
-              id="plus"
-              symbol="+"
+            <View style={styles.stepperRow}>
+              <StepperButton
+                id="minus"
+                symbol="−"
+                fontScale={fontScale}
+                isFocused={focusedId === "minus"}
+                onFocusId={setFocusedId}
+                onPress={() => noOfTeeth > 2 && setNoOfTeeth(noOfTeeth - 1)}
+              />
+              <Text style={[styles.teethCount, { fontSize: 26 * fontScale }]}>
+                {noOfTeeth}
+              </Text>
+              <StepperButton
+                id="plus"
+                symbol="+"
+                fontScale={fontScale}
+                isFocused={focusedId === "plus"}
+                onFocusId={setFocusedId}
+                onPress={() => noOfTeeth < 32 && setNoOfTeeth(noOfTeeth + 1)}
+              />
+            </View>
+          </Animated.View>
+        )}
+
+        <View style={styles.mouthCard}>
+          {(game) ? (
+            <Image
+              source={require("../assets/images/mouthopen.png")}
+              style={styles.mouthImage}
+              resizeMode="contain"
+            />
+          ) : (
+            <Image
+              source={require("../assets/images/mouthclosed.png")}
+              style={styles.mouthImage}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+
+        {(game || lose || win) && (
+          <View style={styles.teethGridCard}>
+            <View style={styles.teethGrid}>
+              {numArr.map((item) => (
+                <Tooth
+                  key={item}
+                  number={item}
+                  isSafe={winNo.includes(item)}
+                  isLoser={item === loserNumber && lose}
+                  isFocused={focusedId === item}
+                  disabled={lose || win}
+                  onFocusId={setFocusedId}
+                  onPress={() => clickHandler(item)}
+                />
+              ))}
+            </View>
+            <ChompOverlay
+              triggerKey={lose ? round : 0}
+              active={lose}
               fontScale={fontScale}
-              isFocused={focusedId === "plus"}
-              onFocusId={setFocusedId}
-              onPress={() => noOfTeeth < 32 && setNoOfTeeth(noOfTeeth + 1)}
             />
           </View>
-        </Animated.View>
-      )}
+        )}
 
-      <View style={styles.mouthCard}>
-        <Image
-          source={require("../assets/images/mouthclosed.png")}
-          style={styles.mouthImage}
-          resizeMode="contain"
+        {lose && (
+          <Animated.Text
+            entering={FadeIn.duration(250)}
+            style={[
+              styles.status,
+              styles.statusLose,
+              { fontSize: 24 * fontScale },
+            ]}
+          >
+            You Lost!
+          </Animated.Text>
+        )}
+        {win && (
+          <Animated.Text
+            entering={FadeIn.duration(250)}
+            style={[
+              styles.status,
+              styles.statusWin,
+              { fontSize: 24 * fontScale },
+            ]}
+          >
+            You Win!
+          </Animated.Text>
+        )}
+
+        <ActionButton
+          id="start"
+          label={game || win || lose ? "Reset" : "Start"}
+          fontScale={fontScale}
+          isFocused={focusedId === "start"}
+          onFocusId={setFocusedId}
+          onPress={startGame}
         />
-      </View>
-
-      {(game || lose || win) && (
-        <View style={styles.teethGridCard}>
-          <View style={styles.teethGrid}>
-            {numArr.map((item) => (
-              <Tooth
-                key={item}
-                number={item}
-                isSafe={winNo.includes(item)}
-                isLoser={item === loserNumber && lose}
-                isFocused={focusedId === item}
-                disabled={lose || win}
-                onFocusId={setFocusedId}
-                onPress={() => clickHandler(item)}
-              />
-            ))}
-          </View>
-          <ChompOverlay
-            triggerKey={lose ? round : 0}
-            active={lose}
-            fontScale={fontScale}
-          />
-        </View>
-      )}
-
-      {lose && (
-        <Animated.Text
-          entering={FadeIn.duration(250)}
-          style={[
-            styles.status,
-            styles.statusLose,
-            { fontSize: 24 * fontScale },
-          ]}
-        >
-          You Lost!
-        </Animated.Text>
-      )}
-      {win && (
-        <Animated.Text
-          entering={FadeIn.duration(250)}
-          style={[
-            styles.status,
-            styles.statusWin,
-            { fontSize: 24 * fontScale },
-          ]}
-        >
-          You Win!
-        </Animated.Text>
-      )}
-
-      <ActionButton
-        id="start"
-        label={game || win || lose ? "Reset" : "Start"}
-        fontScale={fontScale}
-        isFocused={focusedId === "start"}
-        onFocusId={setFocusedId}
-        onPress={startGame}
-      />
-      <ActionButton
-        id="back"
-        label="Back to Menu"
-        variant="secondary"
-        fontScale={fontScale}
-        isFocused={focusedId === "back"}
-        onFocusId={setFocusedId}
-        onPress={goBackToMenu}
-      />
-    </View>
+        <ActionButton
+          id="back"
+          label="Back to Menu"
+          variant="secondary"
+          fontScale={fontScale}
+          isFocused={focusedId === "back"}
+          onFocusId={setFocusedId}
+          onPress={goBackToMenu}
+        />
+      </ImageBackground>
+    </>
   );
 }
-
-/* ─────────────────────────── Tooth button ─────────────────────────── */
 
 export function Tooth({
   number,
@@ -349,10 +359,8 @@ export function Tooth({
       onPress={handlePress}
     >
       <Animated.View style={[styles.tooth, animatedStyle]}>
-        {/* Glossy Enamel Highlight */}
         <View style={styles.enamelHighlight} />
 
-        {/* Tooth Number Label */}
         <Text
           style={[
             styles.toothText,
@@ -362,14 +370,11 @@ export function Tooth({
           {number}
         </Text>
 
-        {/* Gum Line Base Depth */}
         <View style={styles.gumBase} />
       </Animated.View>
     </Pressable>
   );
 }
-
-/* ───────────────── Chomp overlay — the "mouth closing" simulation ───────────────── */
 
 function ChompOverlay({ triggerKey, active, fontScale }) {
   const translateY = useSharedValue(160);
@@ -512,26 +517,17 @@ function ActionButton({
   );
 }
 
-/* ─────────────────────────── Styles ─────────────────────────── */
-
 const styles = StyleSheet.create({
-  container: {
+  mainContainer: {
     flex: 1,
-    backgroundColor: "#0b1a12",
+    backgroundColor: "#060913",
     alignItems: "center",
     justifyContent: "center",
-    padding: 20,
-    gap: 10,
   },
-  backgroundImage: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    width: "100%",
-    height: "100%",
-    opacity: 0.35,
+  backgroundImageInner: { opacity: 0.85, width: "100%", height: "auto" },
+  darkOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(6, 9, 19, 0.45)",
   },
   title: {
     fontWeight: "bold",
@@ -688,7 +684,7 @@ const styles = StyleSheet.create({
   },
   actionBtnText: {
     fontWeight: "bold",
-    color: "#03150a",
+    color: "#edf3ef",
     textAlign: "center",
   },
 });

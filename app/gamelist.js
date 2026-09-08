@@ -2,6 +2,7 @@ import {
   View,
   Text,
   Pressable,
+  ImageBackground,
   Image,
   ScrollView,
   StyleSheet,
@@ -17,6 +18,7 @@ import React, { useState, useCallback, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { useControllerNav } from "../hooks/useControllerNav";
 import backgroundImageAsset from "../assets/images/gameboxUI.png";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const games = [
   {
@@ -68,7 +70,7 @@ const FOCUS_SPRING = { damping: 10, stiffness: 180, mass: 0.6 };
 export default function GameList() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-
+  const insets = useSafeAreaInsets();
   const [focusedIndex, setFocusedIndex] = useState(0);
 
   const isTabletOrTV = width >= 768;
@@ -115,9 +117,8 @@ export default function GameList() {
 
   const handleSelect = useCallback(() => {
     if (focusedIndex === backButtonIndex) router.push("/");
-    else if (games[focusedIndex])
-      router.push(games[focusedIndex].route);
-  }, [focusedIndex, backButtonIndex, navigation]);
+    else if (games[focusedIndex]) router.push(games[focusedIndex].route);
+  }, [focusedIndex, backButtonIndex, router]);
 
   useControllerNav({
     onUp: handleUp,
@@ -128,60 +129,69 @@ export default function GameList() {
   });
 
   return (
-    <View style={styles.mainContainer}>
-      <Image
-        source={backgroundImageAsset}
-        style={styles.backgroundImage}
-        resizeMode="cover"
-      />
-      <View style={styles.darkOverlay} />
-
-      <View
-        style={[
-          styles.glassCard,
-          {
-            maxWidth: isTV ? 1100 : isTabletOrTV ? 850 : "94%",
-            maxHeight: isTV ? "100%" : "95%",
-            padding: isTabletOrTV ? 28 : 16,
-          },
+    <ImageBackground
+      source={backgroundImageAsset}
+      style={styles.mainContainer}
+      imageStyle={styles.backgroundImageInner}
+      resizeMode="cover"
+    >
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 },
         ]}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={styles.logoBadge}>
-          <Text style={[styles.logoText, isTabletOrTV && styles.logoTextLarge]}>
-            Play OTG COLLECTION
-          </Text>
-        </View>
-
-        <ScrollView
-          style={styles.list}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
+        <View
+          style={[
+            styles.glassCard,
+            {
+              maxWidth: isTV ? 1100 : isTabletOrTV ? 850 : "94%",
+              maxHeight: isTV ? "100%" : "95%",
+              padding: isTabletOrTV ? 28 : 16,
+            },
+          ]}
         >
-          <View style={styles.grid}>
-            {games.map((item, index) => (
-              <GameCard
-                key={item.id}
-                item={item}
-                isTabletOrTV={isTabletOrTV}
-                numColumns={numColumns}
-                isFocused={focusedIndex === index}
-                onFocus={() => setFocusedIndex(index)}
-                onPress={() => router.push(item.route)}
-              />
-            ))}
+          <View style={styles.logoBadge}>
+            <Text
+              style={[styles.logoText, isTabletOrTV && styles.logoTextLarge]}
+            >
+              Play OTG COLLECTION
+            </Text>
           </View>
-        </ScrollView>
 
-        <View style={styles.buttonGroup}>
-          <BackButton
-            isTabletOrTV={isTabletOrTV}
-            isFocused={focusedIndex === backButtonIndex}
-            onFocus={() => setFocusedIndex(backButtonIndex)}
-            onPress={() => router.push("/")}
-          />
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.grid}>
+              {games.map((item, index) => (
+                <GameCard
+                  key={item.id}
+                  item={item}
+                  isTabletOrTV={isTabletOrTV}
+                  numColumns={numColumns}
+                  isFocused={focusedIndex === index}
+                  onFocus={() => setFocusedIndex(index)}
+                  onPress={() => router.push(item.route)}
+                />
+              ))}
+            </View>
+          </ScrollView>
+
+          <View style={styles.buttonGroup}>
+            <BackButton
+              isTabletOrTV={isTabletOrTV}
+              isFocused={focusedIndex === backButtonIndex}
+              onFocus={() => setFocusedIndex(backButtonIndex)}
+              onPress={() => router.push("/")}
+            />
+          </View>
         </View>
-      </View>
-    </View>
+      </ScrollView>
+    </ImageBackground>
   );
 }
 
@@ -303,18 +313,18 @@ const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
     backgroundColor: "#060913",
+  },
+  backgroundImageInner: { opacity: 0.85 },
+  darkOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(6, 9, 19, 0.55)",
+  },
+  scrollView: { flex: 1 },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-  },
-  backgroundImage: {
-    ...StyleSheet.absoluteFillObject,
-    width: "100%",
-    height: "100%",
-    opacity: 0.85,
-  },
-  darkOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(6, 9, 19, 0.55)",
+    paddingHorizontal: 20,
   },
   glassCard: {
     width: "100%",
