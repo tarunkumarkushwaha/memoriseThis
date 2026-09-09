@@ -11,17 +11,17 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withSpring,
   withSequence,
+  withSpring,
   interpolateColor,
   runOnJS,
-  FadeIn,
   Easing,
+  FadeIn,
 } from "react-native-reanimated";
-import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useControllerNav } from "../hooks/useControllerNav";
+import { useRouter } from "expo-router";
 import { useAudioPlayer } from "expo-audio";
+import { useControllerNavDirect } from "../hooks/useControllerNavDirect";
 
 const ZONES = { UP: "UP", DOWN: "DOWN", LEFT: "LEFT", RIGHT: "RIGHT" };
 const ZONE_LIST = [ZONES.UP, ZONES.DOWN, ZONES.LEFT, ZONES.RIGHT];
@@ -37,7 +37,6 @@ const BASE_CATCH_MS = 1000;
 const MIN_CATCH_MS = 500;
 const CATCH_STEP_PER_LEVEL = 45;
 
-const BOUNCE_SPRING = { damping: 8, stiffness: 220, mass: 0.5 };
 const FOCUS_SPRING = { damping: 10, stiffness: 180, mass: 0.6 };
 
 function getZoneRect(zone, width, height) {
@@ -92,9 +91,7 @@ function getThrowTrajectory(targetZone, width, height) {
 
   const startX = width * 0.2 + Math.random() * (width * 0.6);
   const startY = height + FRUIT_SIZE;
-
   const apexY = Math.max(height * 0.02, targetY - 40);
-
   const endX = startX + (targetX - startX) * 1.6;
   const endY = height + FRUIT_SIZE;
 
@@ -184,7 +181,7 @@ export default function FruitCutterZone() {
     } else {
       setIsNewHighScore(false);
     }
-  }, [highScore]);
+  }, [highScore, playSound, gameover]);
 
   const loseLife = useCallback(() => {
     playSound(bomb);
@@ -193,19 +190,21 @@ export default function FruitCutterZone() {
       if (next === 0) setTimeout(() => endGame(), 250);
       return next;
     });
-  }, [endGame]);
+  }, [endGame, playSound, bomb]);
 
+  // Unified Zone Slash Trigger
   const triggerZoneSlash = useCallback(
     (zone) => {
       if (phase !== "playing") return;
       setActiveZoneSlash(zone);
-      setTimeout(() => setActiveZoneSlash(null), 100);
+      setTimeout(() => setActiveZoneSlash(null), 120);
 
       setFruits((prev) =>
         prev.map((f) => {
           if (!f.sliced && f.currentZone === zone) {
-            if (f.isBomb) loseLife();
-            else {
+            if (f.isBomb) {
+              loseLife();
+            } else {
               setScore((s) => s + 10);
               playSound(smash);
             }
@@ -215,7 +214,7 @@ export default function FruitCutterZone() {
         }),
       );
     },
-    [phase, loseLife],
+    [phase, loseLife, playSound, smash],
   );
 
   const handleFruitZoneUpdate = useCallback((id, zone) => {
@@ -224,13 +223,9 @@ export default function FruitCutterZone() {
     );
   }, []);
 
-  const handleFruitExit = useCallback(
-    (id, sliced, isBomb) => {
-      //   if (phase === "playing" && !sliced && !isBomb) loseLife();
-      setFruits((prev) => prev.filter((f) => f.id !== id));
-    },
-    [phase, loseLife],
-  );
+  const handleFruitExit = useCallback((id) => {
+    setFruits((prev) => prev.filter((f) => f.id !== id));
+  }, []);
 
   useEffect(() => {
     if (phase !== "playing") return;
@@ -283,7 +278,6 @@ export default function FruitCutterZone() {
     if (phase === "menu") {
       if (focusedId === "start") return startGame();
       if (focusedId === "back") return goToMenu();
-      return;
     }
     if (phase === "gameOver") {
       if (focusedId === "play-again") return startGame();
@@ -300,22 +294,27 @@ export default function FruitCutterZone() {
     if (next) setFocusedId(next);
   };
 
-  useControllerNav({
-    onUp: () =>
-      phase === "playing" ? triggerZoneSlash(ZONES.UP) : moveMenuFocus("up"),
-    onDown: () =>
-      phase === "playing"
-        ? triggerZoneSlash(ZONES.DOWN)
-        : moveMenuFocus("down"),
-    onLeft: () =>
-      phase === "playing"
-        ? triggerZoneSlash(ZONES.LEFT)
-        : moveMenuFocus("left"),
-    onRight: () =>
-      phase === "playing"
-        ? triggerZoneSlash(ZONES.RIGHT)
-        : moveMenuFocus("right"),
-    onSelect: selectFocused,
+  // Controller Navigation with Phase Check
+  useControllerNavDirect({
+    onLeft: () => {
+      if (phase === "playing") triggerZoneSlash(ZONES.LEFT);
+      else moveMenuFocus("left");
+    },
+    onRight: () => {
+      if (phase === "playing") triggerZoneSlash(ZONES.RIGHT);
+      else moveMenuFocus("right");
+    },
+    onUp: () => {
+      if (phase === "playing") triggerZoneSlash(ZONES.UP);
+      else moveMenuFocus("up");
+    },
+    onDown: () => {
+      if (phase === "playing") triggerZoneSlash(ZONES.DOWN);
+      else moveMenuFocus("down");
+    },
+    onSelect: () => {
+      if (phase !== "playing") selectFocused();
+    },
   });
 
   if (phase === "menu") {
@@ -328,8 +327,7 @@ export default function FruitCutterZone() {
           >
             <Text style={styles.title}>Fruit Cutter Zone</Text>
             <Text style={styles.subtitle}>
-              Slash Up/Down/Left/Right the instant a fruit enters that zone.
-              Avoid bombs!
+              Press D-Pad Up/Down/Left/Right to slash instantly!
             </Text>
             <Text style={styles.highScoreText}>High Score: {highScore}</Text>
             <ActionButton
@@ -429,12 +427,12 @@ export default function FruitCutterZone() {
 
       <View
         style={styles.gridContainer}
-        onLayout={(e) =>
-          setGridSize({
-            width: e.nativeEvent.layout.width,
-            height: e.nativeEvent.layout.height,
-          })
-        }
+        onLayout={(e) => {
+          const { width, height } = e.nativeEvent.layout;
+          if (width !== gridSize.width || height !== gridSize.height) {
+            setGridSize({ width, height });
+          }
+        }}
       >
         <Zone
           label="▲ UP ▲"
@@ -469,6 +467,7 @@ export default function FruitCutterZone() {
           onPress={() => triggerZoneSlash(ZONES.DOWN)}
         />
 
+        {/* Dynamic Fruits Overlay */}
         {gridSize.width > 0 &&
           fruits.map((fruit) => (
             <ZoneFruit
@@ -484,6 +483,7 @@ export default function FruitCutterZone() {
   );
 }
 
+// Notice focusable={false} so Android TV doesn't capture focus over the D-Pad events
 function Zone({ label, isActive, baseColor, style, onPress }) {
   const scale = useSharedValue(1);
   const glow = useSharedValue(0);
@@ -519,7 +519,7 @@ function Zone({ label, isActive, baseColor, style, onPress }) {
   }));
 
   return (
-    <Pressable onPress={onPress} style={style}>
+    <Pressable focusable={false} onPress={onPress} style={style}>
       <Animated.View style={[styles.zone, animatedStyle]}>
         <Text style={styles.zoneLabel}>{label}</Text>
       </Animated.View>
@@ -543,10 +543,10 @@ function ZoneFruit({ fruit, catchMs, onZoneUpdate, onExit }) {
       exitedRef.current = true;
       scale.value = withTiming(sliced ? 1.4 : 0.6, { duration: 150 });
       opacity.value = withTiming(0, { duration: 150 }, (finished) => {
-        if (finished) runOnJS(onExit)(fruit.id, sliced, fruit.isBomb);
+        if (finished) runOnJS(onExit)(fruit.id);
       });
     },
-    [fruit.id, fruit.isBomb, onExit],
+    [fruit.id, onExit],
   );
 
   useEffect(() => {

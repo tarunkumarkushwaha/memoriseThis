@@ -72,6 +72,13 @@ const games = [
   },
   {
     id: "8",
+    name: "Dice Roller Zone",
+    route: "DiceRollerZone",
+    description: "Just Roll a dice",
+    image: require("../assets/images/dice.jpg"),
+  },
+  {
+    id: "9",
     name: "More Games",
     route: "gamelist",
     description: "Coming soon...",
