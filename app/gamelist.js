@@ -63,6 +63,20 @@ const games = [
     description: "Tic Tack Toe",
     image: require("../assets/images/mole.png"),
   },
+  {
+    id: "7",
+    name: "Fruit Smasher",
+    route: "FruitCutter",
+    description: "Fruit Smasher",
+    image: require("../assets/images/apples.png"),
+  },
+  {
+    id: "8",
+    name: "More Games",
+    route: "gamelist",
+    description: "Coming soon...",
+    image: require("../assets/images/gamebox.png"),
+  },
 ];
 
 const FOCUS_SPRING = { damping: 10, stiffness: 180, mass: 0.6 };

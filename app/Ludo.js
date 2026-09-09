@@ -323,6 +323,11 @@ export default function LudoGame() {
     [],
   );
 
+  // Persists just enough to resume a turn: whose turn, everyone's token
+  // positions, and the setup (player count/colors/types) needed to
+  // rebuild activeColors identically. Deliberately does NOT try to save
+  // mid-roll transient state (dice value, movable tokens) — resuming
+  // always lands on "awaiting roll" for whoever's turn it was.
   const saveGameState = useCallback(
     (freshTokens, freshCurrentPlayerIdx) => {
       const payload = {
@@ -379,11 +384,19 @@ export default function LudoGame() {
   };
 
   const goBackToMenu = () => {
+    // Safety-net save for the narrow window between rolling and picking a
+    // token — per-move saves (see resolveMove/advanceTurn) cover
+    // everything else.
     if (phase !== "setup" && phase !== "gameOver") {
       saveGameState(tokens, currentPlayerIdx);
     }
     router.push("/gamelist");
   };
+
+  // bonus=true keeps the same player's turn; freshTokens lets callers pass
+  // just-computed tokens (React state isn't updated yet within the same
+  // function that called setTokens) rather than relying on possibly-stale
+  // closure state.
   const advanceTurn = (bonus, freshTokens = tokens) => {
     if (bonus) {
       setPhase("awaitingRoll");
@@ -399,41 +412,35 @@ export default function LudoGame() {
     saveGameState(freshTokens, nextPlayerIdx);
   };
 
-  const resolveMove = (color, tokenIdx, roll) => {
+  const resolveMove = (color, tokenIdx) => {
+    const roll = diceValue;
     const {
       tokens: nextTokens,
       captured,
       reachedHome,
     } = applyMove(tokens, color, tokenIdx, roll);
-
     setTokens(nextTokens);
     playSound(moveSound);
-
     if (captured) playSound(captureSound);
     if (reachedHome) playSound(winSound);
 
     const finishedAll = nextTokens[color].every((p) => p === 57);
-
     if (finishedAll) {
       setWinner(color);
       setPhase("gameOver");
       playSound(winSound);
-      clearSavedGame();
+      clearSavedGame(); // nothing left to resume
       return;
     }
 
     const bonus = roll === 6 || captured || reachedHome;
-
     setMovableTokens([]);
     advanceTurn(bonus, nextTokens);
   };
 
-  const doMoveOrAI = (color, tokenIdx, roll) => {
+  const doMoveOrAI = (color, tokenIdx) => {
     setPhase("moving");
-
-    setTimeout(() => {
-      resolveMove(color, tokenIdx, roll);
-    }, 300);
+    setTimeout(() => resolveMove(color, tokenIdx), 300);
   };
 
   const rollDice = () => {
@@ -471,7 +478,7 @@ export default function LudoGame() {
       return;
     }
     if (moves.length === 1) {
-      doMoveOrAI(currentColor, moves[0], roll);
+      doMoveOrAI(currentColor, moves[0]);
       return;
     }
     setMovableTokens(moves);
@@ -502,9 +509,8 @@ export default function LudoGame() {
     }
     if (phase === "awaitingTokenSelect") {
       const t = setTimeout(() => {
-        const roll = diceValue;
-        const idx = pickAIMove(currentColor, roll, movableTokens);
-        doMoveOrAI(currentColor, idx, roll);
+        const idx = pickAIMove(currentColor, diceValue, movableTokens);
+        doMoveOrAI(currentColor, idx);
       }, 650);
       return () => clearTimeout(t);
     }
@@ -543,7 +549,7 @@ export default function LudoGame() {
     else if (focusedId === "play-again") startGame();
     else if (typeof focusedId === "string" && focusedId.startsWith("token-")) {
       const idx = Number(focusedId.split("-")[1]);
-      doMoveOrAI(currentColor, idx, diceValue);
+      doMoveOrAI(currentColor, idx);
     }
   };
 
@@ -860,7 +866,7 @@ export default function LudoGame() {
                           movableTokens.includes(idx) &&
                           phase === "awaitingTokenSelect"
                         ) {
-                          doMoveOrAI(color, idx, diceValue);
+                          doMoveOrAI(color, idx);
                         }
                       }}
                     />
@@ -1125,20 +1131,21 @@ function Token({
   }));
 
   return (
-    <Pressable onPress={onPress} style={{ position: "absolute" }} hitSlop={6}>
-      <Animated.View
-        style={[
-          styles.token,
-          animatedStyle,
-          {
-            backgroundColor: TOKEN_COLORS[color],
-            borderColor: isFocused ? "#ffffff" : "rgba(255,255,255,0.85)",
-          },
-        ]}
-      >
-        <View style={styles.tokenInnerDot} />
-      </Animated.View>
-    </Pressable>
+    <Animated.View style={[styles.tokenWrapper, animatedStyle]}>
+      <Pressable onPress={onPress} style={styles.tokenPressable} hitSlop={10}>
+        <View
+          style={[
+            styles.token,
+            {
+              backgroundColor: TOKEN_COLORS[color],
+              borderColor: isFocused ? "#ffffff" : "rgba(255,255,255,0.85)",
+            },
+          ]}
+        >
+          <View style={styles.tokenInnerDot} />
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -1321,40 +1328,26 @@ function ActionButton({
 }
 
 const styles = StyleSheet.create({
-  mainContainer: {
-    flex: 1,
-    backgroundColor: "#060913",
-  },
-  bgImage: {
-    ...StyleSheet.absoluteFillObject,
-    width: "100%",
-    height: "100%",
-    opacity: 0.85,
-  },
+  mainContainer: { flex: 1, backgroundColor: "#0b1220" },
+  bgImageInner: { opacity: 0.5 },
   darkOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(6, 9, 19, 0.55)",
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(8, 11, 20, 0.5)",
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 18,
+    justifyContent: "center",
+    paddingHorizontal: 16,
   },
   glassCard: {
     width: "100%",
-    backgroundColor: "rgba(15, 23, 42, 0.78)",
-    borderRadius: 24,
+    backgroundColor: "rgba(15, 23, 42, 0.8)",
+    borderRadius: 22,
     borderWidth: 1,
-    // display:"flex",
-    // justifyContent:"center",
-    borderColor: "rgba(255, 255, 255, 0.15)",
+    borderColor: "rgba(255,255,255,0.12)",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.5,
-    shadowRadius: 24,
-    elevation: 12,
+    gap: 10,
   },
   resumeCard: { padding: 26, gap: 12 },
   resumeSubtext: { color: "#94a3b8", textAlign: "center" },
@@ -1362,155 +1355,125 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(99, 102, 241, 0.2)",
     borderWidth: 1,
     borderColor: "rgba(99, 102, 241, 0.5)",
-    paddingVertical: 3,
+    paddingVertical: 4,
     paddingHorizontal: 14,
-    borderRadius: 16,
-    marginBottom: 8,
+    borderRadius: 999,
   },
-  badgeText: {
-    fontWeight: "800",
-    color: "#a5b4fc",
-    letterSpacing: 2,
-  },
+  badgeText: { color: "#a5b4fc", fontWeight: "800", letterSpacing: 2 },
   title: {
-    color: "#ffffff",
+    color: "#fff",
     fontWeight: "800",
-    marginBottom: 16,
     textAlign: "center",
+    marginBottom: 4,
   },
-
-  /* Setup Screen Styles */
   setupSectionLabel: {
     color: "#94a3b8",
     fontWeight: "700",
     letterSpacing: 1,
-    marginTop: 10,
-    marginBottom: 6,
     alignSelf: "flex-start",
+    marginTop: 6,
   },
   optionRow: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
     flexWrap: "wrap",
-    marginBottom: 8,
+    gap: 8,
+    justifyContent: "center",
     width: "100%",
   },
   seatsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
+    justifyContent: "center",
     width: "100%",
-    marginBottom: 16,
   },
   seatCard: {
-    flex: 1,
-    minWidth: "45%",
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderWidth: 1.5,
-    borderRadius: 12,
-    padding: 8,
+    width: "47%",
+    minWidth: 130,
+    borderWidth: 2,
+    borderRadius: 14,
+    padding: 10,
     alignItems: "center",
-    gap: 4,
+    gap: 6,
+    backgroundColor: "rgba(255,255,255,0.04)",
   },
-  seatColorLabel: {
-    fontWeight: "800",
-    letterSpacing: 0.5,
+  seatColorLabel: { fontWeight: "800", letterSpacing: 0.5 },
+  setupActionGroup: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    justifyContent: "center",
+    marginTop: 12,
   },
   pressableBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     borderWidth: 2,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
-  pressableBtnText: {
-    color: "#ffffff",
-    fontWeight: "700",
-  },
-  setupActionGroup: {
-    width: "100%",
-    gap: 10,
-    marginTop: 8,
-  },
-
+  pressableBtnText: { color: "#f8fafc", fontWeight: "700" },
   turnBanner: {
     borderWidth: 2,
-    height: 70,
-    borderRadius: 14,
+    borderRadius: 12,
+    height:60,
     paddingVertical: 6,
     paddingHorizontal: 16,
+    backgroundColor: "rgba(255,255,255,0.05)",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.06)",
-    marginBottom: 12,
   },
-  turnText: { fontWeight: "800", letterSpacing: 1 },
-  turnMessage: { color: "#cbd5e1", marginTop: 2 },
-  boardWrapper: {
-    padding: 3,
-    backgroundColor: "#020617",
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.6,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  board: {
-    backgroundColor: "#0f172a",
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  token: {
+  turnText: { fontWeight: "800" },
+  turnMessage: { color: "#94a3b8", marginTop: 2 },
+  boardWrapper: { alignItems: "center", justifyContent: "center" },
+  board: { backgroundColor: "#1e293b", borderRadius: 12, overflow: "hidden" },
+  tokenWrapper: {
     position: "absolute",
+    shadowColor: "#ffffff",
+    shadowOffset: { width: 0, height: 0 },
+  },
+  tokenPressable: { width: "100%", height: "100%" },
+  token: {
+    flex: 1,
     borderRadius: 999,
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
   },
   tokenInnerDot: {
     width: "35%",
     height: "35%",
     borderRadius: 999,
-    backgroundColor: "rgba(255, 255, 255, 0.85)",
+    backgroundColor: "rgba(255,255,255,0.5)",
   },
   controlsContainer: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    width: "100%",
-    marginTop: 14,
-    gap: 12,
+    gap: 30,
+    flexWrap:"wrap",
+    marginTop: 10,
   },
   dice: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
+    width: 56,
+    height: 56,
+    borderRadius: 12,
     backgroundColor: "#f8fafc",
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
   },
-  winnerBox: {
-    alignItems: "center",
-    gap: 6,
-  },
+  winnerBox: { alignItems: "center", gap: 10 },
   winnerText: { fontWeight: "900", letterSpacing: 1 },
   actionBtn: {
-    padding: 12,
-    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 14,
     borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
   },
   actionBtnPrimary: { backgroundColor: "#6366f1" },
-  actionBtnSecondary: { backgroundColor: "rgba(255, 255, 255, 0.08)" },
-  actionBtnText: { fontWeight: "800", color: "#ffffff", textAlign: "center" },
+  actionBtnSecondary: { backgroundColor: "rgba(255,255,255,0.08)" },
+  actionBtnText: { color: "#fff", fontWeight: "700" },
 });
