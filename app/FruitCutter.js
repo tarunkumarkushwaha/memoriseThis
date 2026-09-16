@@ -25,7 +25,7 @@ import { useControllerNavDirect } from "../hooks/useControllerNavDirect";
 
 const ZONES = { UP: "UP", DOWN: "DOWN", LEFT: "LEFT", RIGHT: "RIGHT" };
 const ZONE_LIST = [ZONES.UP, ZONES.DOWN, ZONES.LEFT, ZONES.RIGHT];
-const FRUIT_EMOJIS = ["🍉", "🍎", "🍌", "🍊"];
+const FRUIT_EMOJIS = ["🍉", "🍎", "🍌", "🍊", "🍒","🍍","🍇","🍋","🍈"];
 const FRUIT_SIZE = 60;
 
 const HIGH_SCORE_KEY = "fruitcutter_highscore";

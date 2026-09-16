@@ -32,7 +32,6 @@ const FOCUS_SPRING = { damping: 10, stiffness: 180, mass: 0.6 };
 export default function () {
   const router = useRouter();
   const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
-
   const [phase, setPhase] = useState("menu"); // menu | playing | gameOver
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState(1);
