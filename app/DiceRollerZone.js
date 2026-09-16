@@ -204,7 +204,7 @@ export default function DiceRollerZone() {
               </View>
             ))
           ) : (
-            <View key={i} style={styles.historyChip}>
+            <View style={styles.historyChip}>
               <Text style={styles.historyText}>No history</Text>
             </View>
           )}

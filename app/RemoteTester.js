@@ -1,18 +1,8 @@
 import React, { useState, useCallback } from "react";
 import { View, Text, StyleSheet } from "react-native";
+import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming, interpolateColor } from "react-native-reanimated";
+import { useRemoteControl } from "../hooks/useRemoteControl";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSequence,
-  withTiming,
-  withSpring,
-  interpolateColor,
-} from "react-native-reanimated";
-import { useDpadPress } from "../hooks/useDpadPress";
-import { useGamepadPress } from "../hooks/useGamepadPress";
-import { useRouter, useFocusEffect } from "expo-router";
-import { BackHandler } from "react-native";
 
 const DISPLAY_INFO = {
   UP: { name: "UP", symbol: "▲" },
@@ -20,18 +10,7 @@ const DISPLAY_INFO = {
   LEFT: { name: "LEFT", symbol: "◄" },
   RIGHT: { name: "RIGHT", symbol: "►" },
   CENTER: { name: "SELECT / ENTER", symbol: "OK" },
-  BACK: { name: "BACK", symbol: "BACK" },
 };
-
-function formatTime(date) {
-  return `${date.getHours().toString().padStart(2, "0")}:${date
-    .getMinutes()
-    .toString()
-    .padStart(2, "0")}:${date.getSeconds().toString().padStart(2, "0")}.${date
-    .getMilliseconds()
-    .toString()
-    .padStart(3, "0")}`;
-}
 
 export default function RemoteTester() {
   const [lastAction, setLastAction] = useState({
@@ -42,50 +21,33 @@ export default function RemoteTester() {
 
   const scale = useSharedValue(1);
   const glow = useSharedValue(0);
-  const router = useRouter();
-  const goToMenu = useCallback(() => router.push("/gamelist"), [router]);
 
   const triggerVisualPulse = useCallback(() => {
     scale.value = withSequence(
       withSpring(1.15, { damping: 8, stiffness: 200 }),
-      withSpring(1, { damping: 10, stiffness: 180 }),
+      withSpring(1, { damping: 10, stiffness: 180 })
     );
     glow.value = withSequence(
       withTiming(1, { duration: 80 }),
-      withTiming(0, { duration: 300 }),
+      withTiming(0, { duration: 300 })
     );
   }, [scale, glow]);
 
-  const handleDirectionPress = useCallback(
-    // (direction, code) => {
-    (direction) => {
-      if (direction === "BACK") {
-        goToMenu();
-        return;
-      }
-      // console.log(
-      //   "Button Pressed -> Direction:",
-      //   direction,
-      //   "Code/Index:",
-      //   code,
-      // );
-      const info = DISPLAY_INFO[direction];
+  // Hook handles remote input, logging, and automatic back navigation!
+  const { direction, code, GamepadListener } = useRemoteControl({
+    onPress: (dir, keycode) => {
+      const info = DISPLAY_INFO[dir];
       if (!info) return;
+
       setLastAction({
-        name: `${info.name} clicked`,
+        name: `${info.name} clicked (Code: ${keycode})`,
         symbol: info.symbol,
-        time: formatTime(new Date()),
+        time: new Date().toLocaleTimeString(),
       });
       triggerVisualPulse();
     },
-    [triggerVisualPulse, goToMenu],
-  );
-
-  // Two independent sources, one shared handler — whichever fires last wins the display.
-  const [remoteDirection, remoteKeycode] = useDpadPress(handleDirectionPress);
-  const [gamepadDirection, GamepadListener] =
-    useGamepadPress(handleDirectionPress);
-  const activeDirection = gamepadDirection ?? remoteDirection;
+    autoNavigateBack: true,
+  });
 
   const cardAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -95,36 +57,17 @@ export default function RemoteTester() {
     shadowRadius: 15,
   }));
 
-  useFocusEffect(
-    useCallback(() => {
-      const onBackPress = () => {
-        goToMenu();
-        return true; // tells Android "handled — don't do the default back navigation"
-      };
-
-      const subscription = BackHandler.addEventListener(
-        "hardwareBackPress",
-        onBackPress,
-      );
-      return () => subscription.remove();
-    }, [goToMenu]),
-  );
-
-  // console.log(remoteDirection, "working", remoteKeycode);
-
   return (
     <SafeAreaView style={styles.container}>
       {GamepadListener}
 
       <View style={styles.header}>
         <Text style={styles.headerTitle}>
-          {" "}
-          {remoteKeycode == null ? "null" : "—"}
+          KeyCode: {code ?? "null"}
         </Text>
         <Text style={styles.headerSubtitle}>
-          Works with a TV remote D-pad or a Bluetooth/USB game controller
+          Current Direction: {direction ?? "NONE"}
         </Text>
-        {/* <Text style={styles.debugText}>Last raw keyCode: {remoteKeycode == null ? "null": "—"}</Text> */}
       </View>
 
       <View style={styles.displayArea}>
@@ -133,93 +76,6 @@ export default function RemoteTester() {
           <Text style={styles.actionName}>{lastAction.name}</Text>
           <Text style={styles.timestampText}>{lastAction.time}</Text>
         </Animated.View>
-      </View>
-
-      <View style={styles.dpadGrid}>
-        <View
-          style={[
-            styles.gridCell,
-            styles.topCell,
-            activeDirection === "UP" && styles.activeCell,
-          ]}
-        >
-          <Text
-            style={[
-              styles.gridText,
-              activeDirection === "UP" && styles.activeGridText,
-            ]}
-          >
-            ▲
-          </Text>
-        </View>
-
-        <View style={styles.middleRow}>
-          <View
-            style={[
-              styles.gridCell,
-              activeDirection === "LEFT" && styles.activeCell,
-            ]}
-          >
-            <Text
-              style={[
-                styles.gridText,
-                activeDirection === "LEFT" && styles.activeGridText,
-              ]}
-            >
-              ◄
-            </Text>
-          </View>
-
-          <View
-            style={[
-              styles.gridCell,
-              styles.centerCell,
-              activeDirection === "CENTER" && styles.activeCenterCell,
-            ]}
-          >
-            <Text
-              style={[
-                styles.gridText,
-                activeDirection === "CENTER" && styles.activeGridText,
-              ]}
-            >
-              OK
-            </Text>
-          </View>
-
-          <View
-            style={[
-              styles.gridCell,
-              activeDirection === "RIGHT" && styles.activeCell,
-            ]}
-          >
-            <Text
-              style={[
-                styles.gridText,
-                activeDirection === "RIGHT" && styles.activeGridText,
-              ]}
-            >
-              ►
-            </Text>
-          </View>
-        </View>
-
-        <View
-          style={[
-            styles.gridCell,
-            styles.bottomCell,
-            activeDirection === "DOWN" && styles.activeCell,
-          ]}
-        >
-          <Text
-            style={[
-              styles.gridText,
-              activeDirection === "DOWN" && styles.activeGridText,
-            ]}
-          >
-            ▼
-          </Text>
-        </View>
       </View>
     </SafeAreaView>
   );

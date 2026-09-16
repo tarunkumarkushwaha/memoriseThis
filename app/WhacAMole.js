@@ -29,6 +29,7 @@ import { useControllerNav } from "../hooks/useControllerNav.js";
 import Hole from "../components/Hole";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import backgroundImageAsset from "../assets/images/gameboxUI.png";
+import { useRemoteControl } from "../hooks/useRemoteControl";
 
 const FOCUS_SPRING = { damping: 10, stiffness: 180, mass: 0.6 };
 const BOUNCE_SPRING = { damping: 8, stiffness: 220, mass: 0.5 };
@@ -107,7 +108,7 @@ export default function WhacAMole() {
   const [focusedHole, setFocusedHole] = useState(0);
   const [focusedGameOver, setFocusedGameOver] = useState("playAgain");
 
-  const [selectedSpeedIdx, setSelectedSpeedIdx] = useState(3);
+  const [selectedSpeedIdx, setSelectedSpeedIdx] = useState(1);
   const [selectedLayoutIdx, setSelectedLayoutIdx] = useState(0);
 
   const selectedSpeed = SPEEDS[selectedSpeedIdx];
@@ -283,50 +284,106 @@ export default function WhacAMole() {
     moveHole(dir);
   };
 
-  useControllerNav({
-    onUp: () => {
-      if (phase === "setup") {
-        const n = MENU_MAP[focusedMenu]?.up;
-        if (n) setFocusedMenu(n);
-      } else if (phase === "playing") handleDirection("up");
-    },
-    onDown: () => {
-      if (phase === "setup") {
-        const n = MENU_MAP[focusedMenu]?.down;
-        if (n) setFocusedMenu(n);
-      } else if (phase === "playing") handleDirection("down");
-    },
-    onLeft: () => {
-      if (phase === "setup") {
-        if (focusedMenu === "speed")
-          setSelectedSpeedIdx((i) => Math.max(0, i - 1));
-        else if (focusedMenu === "layout")
-          setSelectedLayoutIdx((i) => Math.max(0, i - 1));
-      } else if (phase === "playing") handleDirection("left");
-      else if (phase === "over") setFocusedGameOver("playAgain");
-    },
-    onRight: () => {
-      if (phase === "setup") {
-        if (focusedMenu === "speed")
-          setSelectedSpeedIdx((i) => Math.min(SPEEDS.length - 1, i + 1));
-        else if (focusedMenu === "layout")
-          setSelectedLayoutIdx((i) => Math.min(LAYOUTS.length - 1, i + 1));
-      } else if (phase === "playing") handleDirection("right");
-      else if (phase === "over") setFocusedGameOver("backToMenu");
-    },
-    onSelect: () => {
-      if (phase === "setup") {
-        if (focusedMenu === "back") return exitApp();
-        if (focusedMenu === "start") return startGame();
-        return;
+  const { GamepadListener } = useRemoteControl({
+    onPress: (dir) => {
+      if (dir === "BACK") {
+        return phase === "menu" ? exitApp() : backToMenu();
       }
-      if (phase === "playing") return hit();
-      if (phase === "over") {
-        if (focusedGameOver === "playAgain") return startGame();
-        if (focusedGameOver === "backToMenu") return backToMenu();
+      if (dir === "CENTER") {
+        if (phase === "setup") {
+          if (focusedMenu === "back") return exitApp();
+          if (focusedMenu === "start") return startGame();
+          return;
+        }
+        if (phase === "playing") return hit();
+        if (phase === "over") {
+          if (focusedGameOver === "playAgain") return startGame();
+          if (focusedGameOver === "backToMenu") return backToMenu();
+        }
+      }
+      if (dir === "UP" || dir === "DOWN" || dir === "LEFT" || dir === "RIGHT") {
+        if (dir === "UP") {
+          if (phase === "setup") {
+            const n = MENU_MAP[focusedMenu]?.up;
+            if (n) setFocusedMenu(n);
+          } else if (phase === "playing") handleDirection("up");
+        }
+        if (dir === "DOWN") {
+          if (phase === "setup") {
+            const n = MENU_MAP[focusedMenu]?.down;
+            if (n) setFocusedMenu(n);
+          } else if (phase === "playing") handleDirection("down");
+        }
+        if (dir === "LEFT") {
+          if (phase === "setup") {
+            if (focusedMenu === "speed")
+              setSelectedSpeedIdx((i) => Math.max(0, i - 1));
+            else if (focusedMenu === "layout")
+              setSelectedLayoutIdx((i) => Math.max(0, i - 1));
+          } else if (phase === "playing") handleDirection("left");
+          else if (phase === "over") setFocusedGameOver("playAgain");
+        }
+        if (dir === "RIGHT") {
+          if (phase === "setup") {
+            if (focusedMenu === "speed")
+              setSelectedSpeedIdx((i) => Math.min(SPEEDS.length - 1, i + 1));
+            else if (focusedMenu === "layout")
+              setSelectedLayoutIdx((i) => Math.min(LAYOUTS.length - 1, i + 1));
+          } else if (phase === "playing") handleDirection("right");
+          else if (phase === "over") setFocusedGameOver("backToMenu");
+        }
+
+        // if (phase === "playing") triggerZoneSlash(ZONES[dir]);
+        // else return moveMenuFocus(dir.toLowerCase());
       }
     },
+    autoNavigateBack: false,
   });
+
+  // useControllerNav({
+  //   onUp: () => {
+  //     if (phase === "setup") {
+  //       const n = MENU_MAP[focusedMenu]?.up;
+  //       if (n) setFocusedMenu(n);
+  //     } else if (phase === "playing") handleDirection("up");
+  //   },
+  //   onDown: () => {
+  //     if (phase === "setup") {
+  //       const n = MENU_MAP[focusedMenu]?.down;
+  //       if (n) setFocusedMenu(n);
+  //     } else if (phase === "playing") handleDirection("down");
+  //   },
+  //   onLeft: () => {
+  //     if (phase === "setup") {
+  //       if (focusedMenu === "speed")
+  //         setSelectedSpeedIdx((i) => Math.max(0, i - 1));
+  //       else if (focusedMenu === "layout")
+  //         setSelectedLayoutIdx((i) => Math.max(0, i - 1));
+  //     } else if (phase === "playing") handleDirection("left");
+  //     else if (phase === "over") setFocusedGameOver("playAgain");
+  //   },
+  //   onRight: () => {
+  //     if (phase === "setup") {
+  //       if (focusedMenu === "speed")
+  //         setSelectedSpeedIdx((i) => Math.min(SPEEDS.length - 1, i + 1));
+  //       else if (focusedMenu === "layout")
+  //         setSelectedLayoutIdx((i) => Math.min(LAYOUTS.length - 1, i + 1));
+  //     } else if (phase === "playing") handleDirection("right");
+  //     else if (phase === "over") setFocusedGameOver("backToMenu");
+  //   },
+  //   onSelect: () => {
+  //     if (phase === "setup") {
+  //       if (focusedMenu === "back") return exitApp();
+  //       if (focusedMenu === "start") return startGame();
+  //       return;
+  //     }
+  //     if (phase === "playing") return hit();
+  //     if (phase === "over") {
+  //       if (focusedGameOver === "playAgain") return startGame();
+  //       if (focusedGameOver === "backToMenu") return backToMenu();
+  //     }
+  //   },
+  // });
 
   if (phase === "setup") {
     return (
@@ -353,31 +410,37 @@ export default function WhacAMole() {
             onPress={exitApp}
           />
 
-          <OptionSelector
-            label="Speed"
-            fontScale={fontScale}
-            options={SPEEDS}
-            selectedIndex={selectedSpeedIdx}
-            isFocused={focusedMenu === "speed"}
-            onFocus={() => setFocusedMenu("speed")}
-            onLeft={() => setSelectedSpeedIdx((i) => Math.max(0, i - 1))}
-            onRight={() =>
-              setSelectedSpeedIdx((i) => Math.min(SPEEDS.length - 1, i + 1))
-            }
-          />
+          {!Platform.isTV && (
+            <>
+              <OptionSelector
+                label="Speed"
+                fontScale={fontScale}
+                options={SPEEDS}
+                selectedIndex={selectedSpeedIdx}
+                isFocused={focusedMenu === "speed"}
+                onFocus={() => setFocusedMenu("speed")}
+                onLeft={() => setSelectedSpeedIdx((i) => Math.max(0, i - 1))}
+                onRight={() =>
+                  setSelectedSpeedIdx((i) => Math.min(SPEEDS.length - 1, i + 1))
+                }
+              />
 
-          <OptionSelector
-            label="Layout"
-            fontScale={fontScale}
-            options={LAYOUTS}
-            selectedIndex={selectedLayoutIdx}
-            isFocused={focusedMenu === "layout"}
-            onFocus={() => setFocusedMenu("layout")}
-            onLeft={() => setSelectedLayoutIdx((i) => Math.max(0, i - 1))}
-            onRight={() =>
-              setSelectedLayoutIdx((i) => Math.min(LAYOUTS.length - 1, i + 1))
-            }
-          />
+              <OptionSelector
+                label="Layout"
+                fontScale={fontScale}
+                options={LAYOUTS}
+                selectedIndex={selectedLayoutIdx}
+                isFocused={focusedMenu === "layout"}
+                onFocus={() => setFocusedMenu("layout")}
+                onLeft={() => setSelectedLayoutIdx((i) => Math.max(0, i - 1))}
+                onRight={() =>
+                  setSelectedLayoutIdx((i) =>
+                    Math.min(LAYOUTS.length - 1, i + 1),
+                  )
+                }
+              />
+            </>
+          )}
 
           {/* {selectedLayout.isCross && (
             <Text style={[styles.hint, { fontSize: 12 * fontScale }]}>
@@ -385,7 +448,7 @@ export default function WhacAMole() {
             </Text>
           )} */}
 
-          <Text style={[styles.highScoreText, { fontSize: 13 * fontScale }]}>
+          <Text style={[styles.highScoreText, { fontSize: 20 * fontScale }]}>
             High Score: {highScore}
           </Text>
 
@@ -484,6 +547,7 @@ export default function WhacAMole() {
 
   return (
     <View style={styles.container}>
+      {GamepadListener}
       <View style={styles.hud}>
         <Stat label="Score" value={score} fontScale={fontScale} />
         <Stat
@@ -565,10 +629,10 @@ export default function WhacAMole() {
               id={index}
               size={holeSize}
               isVisible={activeMoles.includes(index)}
-              isFocused={focusedHole === index}
-              onFocusId={(id) => {
-                if (id !== null) setFocusedHole(id);
-              }}
+              // isFocused={focusedHole === index}
+              // onFocusId={(id) => {
+              //   if (id !== null) setFocusedHole(id);
+              // }}
               onPress={() => attemptHit(index)}
             />
           ))}

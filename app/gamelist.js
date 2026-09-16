@@ -70,20 +70,27 @@ const games = [
     description: "Fruit Smasher",
     image: require("../assets/images/apples.png"),
   },
-  // {
-  //   id: "8",
-  //   name: "Dice Roller Zone",
-  //   route: "DiceRollerZone",
-  //   description: "Just Roll a dice",
-  //   image: require("../assets/images/dice.jpg"),
-  // },
+  {
+    id: "8",
+    name: "Dice Roller Zone",
+    route: "DiceRollerZone",
+    description: "Just Roll a dice",
+    image: require("../assets/images/dice.jpg"),
+  },
   {
     id: "9",
     name: "More Games",
-    route: "RemoteTester",
+    route: "",
     description: "Coming soon...",
     image: require("../assets/images/gamebox.png"),
   },
+  // {
+  //   id: "10",
+  //   name: "Remote Tester",
+  //   route: "RemoteTester",
+  //   description: "Remote Testing tool...",
+  //   image: require("../assets/images/gamebox.png"),
+  // },
 ];
 
 const FOCUS_SPRING = { damping: 10, stiffness: 180, mass: 0.6 };

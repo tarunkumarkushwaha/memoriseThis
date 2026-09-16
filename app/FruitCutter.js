@@ -21,11 +21,12 @@ import Animated, {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useAudioPlayer } from "expo-audio";
-import { useControllerNavDirect } from "../hooks/useControllerNavDirect";
+// import { useControllerNavDirect } from "../hooks/useControllerNavDirect";
+import { useRemoteControl } from "../hooks/useRemoteControl";
 
 const ZONES = { UP: "UP", DOWN: "DOWN", LEFT: "LEFT", RIGHT: "RIGHT" };
 const ZONE_LIST = [ZONES.UP, ZONES.DOWN, ZONES.LEFT, ZONES.RIGHT];
-const FRUIT_EMOJIS = ["🍉", "🍎", "🍌", "🍊", "🍒","🍍","🍇","🍋","🍈"];
+const FRUIT_EMOJIS = ["🍉", "🍎", "🍌", "🍊", "🍒", "🍍", "🍇", "🍋", "🍈"];
 const FRUIT_SIZE = 60;
 
 const HIGH_SCORE_KEY = "fruitcutter_highscore";
@@ -201,7 +202,7 @@ export default function FruitCutterZone() {
 
       setFruits((prev) =>
         prev.map((f) => {
-          if (!f.sliced && f.currentZone === zone) {
+          if (!f.sliced && f.zone === zone) {
             if (f.isBomb) {
               loseLife();
             } else {
@@ -257,7 +258,7 @@ export default function FruitCutterZone() {
           emoji,
           isBomb,
           zone: targetZone,
-          currentZone: ZONES.DOWN,
+          currentZone: null,
           trajectory,
           sliced: false,
         },
@@ -294,28 +295,42 @@ export default function FruitCutterZone() {
     if (next) setFocusedId(next);
   };
 
-  // Controller Navigation with Phase Check
-  useControllerNavDirect({
-    onLeft: () => {
-      if (phase === "playing") triggerZoneSlash(ZONES.LEFT);
-      else moveMenuFocus("left");
+  const { GamepadListener } = useRemoteControl({
+    onPress: (dir) => {
+      if (dir === "BACK") {
+        return phase === "menu" ? goToMenu() : resetGame();
+      }
+      if (dir === "CENTER") if (phase !== "playing") selectFocused();
+      if (dir === "UP" || dir === "DOWN" || dir === "LEFT" || dir === "RIGHT") {
+        if (phase === "playing") triggerZoneSlash(ZONES[dir]);
+        else return moveMenuFocus(dir.toLowerCase());
+      }
     },
-    onRight: () => {
-      if (phase === "playing") triggerZoneSlash(ZONES.RIGHT);
-      else moveMenuFocus("right");
-    },
-    onUp: () => {
-      if (phase === "playing") triggerZoneSlash(ZONES.UP);
-      else moveMenuFocus("up");
-    },
-    onDown: () => {
-      if (phase === "playing") triggerZoneSlash(ZONES.DOWN);
-      else moveMenuFocus("down");
-    },
-    onSelect: () => {
-      if (phase !== "playing") selectFocused();
-    },
+    autoNavigateBack: false,
   });
+
+  // Controller Navigation with Phase Check
+  // useControllerNavDirect({
+  //   onLeft: () => {
+  //     if (phase === "playing") triggerZoneSlash(ZONES.LEFT);
+  //     else moveMenuFocus("left");
+  //   },
+  //   onRight: () => {
+  //     if (phase === "playing") triggerZoneSlash(ZONES.RIGHT);
+  //     else moveMenuFocus("right");
+  //   },
+  //   onUp: () => {
+  //     if (phase === "playing") triggerZoneSlash(ZONES.UP);
+  //     else moveMenuFocus("up");
+  //   },
+  //   onDown: () => {
+  //     if (phase === "playing") triggerZoneSlash(ZONES.DOWN);
+  //     else moveMenuFocus("down");
+  //   },
+  //   onSelect: () => {
+  //     if (phase !== "playing") selectFocused();
+  //   },
+  // });
 
   if (phase === "menu") {
     return (
@@ -408,13 +423,15 @@ export default function FruitCutterZone() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.hud}>
-        <Pressable onPress={goToMenu} style={styles.backBtn}>
+        {/* <Pressable onPress={goToMenu} style={styles.backBtn}>
           <Text style={styles.hudText}>← Exit</Text>
-        </Pressable>
+        </Pressable> */}
         <Text style={styles.hudText}>Score: {score}</Text>
         <Text style={[styles.hudText, { color: "#facc15" }]}>Lv {level}</Text>
         <Text style={styles.hudText}>{"❤️".repeat(Math.max(0, lives))}</Text>
       </View>
+
+      {GamepadListener}
 
       {showLevelUp && (
         <Animated.View
@@ -467,7 +484,6 @@ export default function FruitCutterZone() {
           onPress={() => triggerZoneSlash(ZONES.DOWN)}
         />
 
-        {/* Dynamic Fruits Overlay */}
         {gridSize.width > 0 &&
           fruits.map((fruit) => (
             <ZoneFruit
