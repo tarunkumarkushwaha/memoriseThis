@@ -385,6 +385,14 @@ export default function WhacAMole() {
   //   },
   // });
 
+  function HiddenGamepadListener({ children }) {
+    return (
+      <View style={styles.hiddenGamepadWrapper} pointerEvents="none">
+        {children}
+      </View>
+    );
+  }
+
   if (phase === "setup") {
     return (
       <View style={styles.container}>
@@ -402,13 +410,13 @@ export default function WhacAMole() {
             Hit the mole before it disappears!
           </Text>
 
-          <MenuButton
+          {/* <MenuButton
             label="Back to Menu"
             fontScale={fontScale}
             focused={focusedMenu === "back"}
             onFocus={() => setFocusedMenu("back")}
             onPress={exitApp}
-          />
+          /> */}
 
           {!Platform.isTV && (
             <>
@@ -547,7 +555,7 @@ export default function WhacAMole() {
 
   return (
     <View style={styles.container}>
-      {GamepadListener}
+      <HiddenGamepadListener>{GamepadListener}</HiddenGamepadListener>
       <View style={styles.hud}>
         <Stat label="Score" value={score} fontScale={fontScale} />
         <Stat
@@ -820,17 +828,26 @@ const styles = StyleSheet.create({
   },
   menuButton: {
     paddingVertical: 12,
-    paddingHorizontal: 28,
+    paddingHorizontal: 12,
     borderRadius: 14,
     borderWidth: 2,
     backgroundColor: "#3b1d5c",
     shadowColor: "#FFE45E",
     shadowOffset: { width: 0, height: 0 },
-    minWidth: 200,
+    minWidth: 150,
     alignItems: "center",
   },
   menuButtonPrimary: {
     backgroundColor: "#5B21B6",
+  },
+  hiddenGamepadWrapper: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 0,
+    height: 0,
+    opacity: 0,
+    zIndex: -1,
   },
   menuText: {
     color: "#f8fafc",

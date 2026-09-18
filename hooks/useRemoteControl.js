@@ -21,7 +21,7 @@ export function useRemoteControl({ onPress, autoNavigateBack = true } = {}) {
       setLastInput({ direction, code });
 
       // 2. Log for debugging
-      console.log(`[useRemoteControl] Direction: ${direction}, Code/Index: ${code}`);
+      // console.log(`[useRemoteControl] Direction: ${direction}, Code/Index: ${code}`);
 
       // 3. Handle BACK button navigation automatically
       if (direction === "BACK" && autoNavigateBack) {

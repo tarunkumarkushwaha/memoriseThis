@@ -128,13 +128,13 @@ export default function DiceRollerZone() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.hud}>
-        {/* <Pressable onPress={goToMenu} style={styles.backBtn}>
+      {/* <View style={styles.hud}>
+        <Pressable onPress={goToMenu} style={styles.backBtn}>
           <Text style={styles.hudText}>← Exit</Text>
-        </Pressable> */}
+        </Pressable>
         <Text style={styles.title}>ASMR Dice Roller</Text>
         <View style={{ width: 50 }} />
-      </View>
+      </View> */}
 
       <View style={styles.content}>
         {/* Dice Count Selector */}
@@ -182,14 +182,14 @@ export default function DiceRollerZone() {
             onPress={rollDice}
             disabled={isRolling}
           />
-          <ActionButton
+          {/* <ActionButton
             id="back"
             label="Back to Menu"
             variant="secondary"
             isFocused={focusedId === "back"}
             onFocusId={setFocusedId}
             onPress={goToMenu}
-          />
+          /> */}
         </View>
 
         <Animated.View

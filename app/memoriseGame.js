@@ -306,7 +306,7 @@ function MenuScreen({
         resizeMode="cover"
       />
       <View style={styles.menuContainer}>
-        <Animated.View entering={FadeIn.duration(400)}>
+        {/* <Animated.View entering={FadeIn.duration(400)}>
           <FocusablePad
             id="back"
             label="Back to Menu"
@@ -316,7 +316,7 @@ function MenuScreen({
             onFocusId={setFocusedId}
             onPress={onBack}
           />
-        </Animated.View>
+        </Animated.View> */}
 
         <Animated.View
           entering={FadeInDown.duration(500).delay(100)}
@@ -458,27 +458,6 @@ function GameScreen({
 
   return (
     <View style={styles.gameContainer}>
-      <View style={styles.topBar}>
-        <FocusablePad
-          id="back"
-          label="Back to Menu"
-          variant="secondary"
-          fontScale={fontScale}
-          isFocused={focusedId === "back"}
-          onFocusId={setFocusedId}
-          onPress={onBack}
-        />
-        <FocusablePad
-          id="reset"
-          label="Reset Game"
-          variant="danger"
-          fontScale={fontScale}
-          isFocused={focusedId === "reset"}
-          onFocusId={setFocusedId}
-          onPress={onReset}
-        />
-      </View>
-
       <LevelBadge level={level} fontScale={fontScale} />
 
       <View style={[styles.board, { width: boardSize, height: boardSize }]}>
@@ -531,6 +510,27 @@ function GameScreen({
           />
           <View style={{ width: cell }} />
         </View>
+      </View>
+
+      <View style={styles.topBar}>
+        {/* <FocusablePad
+          id="back"
+          label="Back to Menu"
+          variant="secondary"
+          fontScale={fontScale}
+          isFocused={focusedId === "back"}
+          onFocusId={setFocusedId}
+          onPress={onBack}
+        /> */}
+        <FocusablePad
+          id="reset"
+          label="Reset Game"
+          variant="danger"
+          fontScale={fontScale}
+          isFocused={focusedId === "reset"}
+          onFocusId={setFocusedId}
+          onPress={onReset}
+        />
       </View>
     </View>
   );
@@ -719,6 +719,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: "center",
+    justifyContent:"center",
     backgroundColor: "#120318",
   },
   backgroundImage: {
@@ -743,8 +744,9 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     alignItems: "center",
+    justifyContent:"center",
     paddingHorizontal: "6%",
-    paddingTop: "4%",
+    // paddingTop: "4%",
   },
   topBar: {
     flexDirection: "row",

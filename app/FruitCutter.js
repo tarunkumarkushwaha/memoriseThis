@@ -89,13 +89,11 @@ function getThrowTrajectory(targetZone, width, height) {
     width,
     height,
   );
-
   const startX = width * 0.2 + Math.random() * (width * 0.6);
   const startY = height + FRUIT_SIZE;
   const apexY = Math.max(height * 0.02, targetY - 40);
   const endX = startX + (targetX - startX) * 1.6;
   const endY = height + FRUIT_SIZE;
-
   return { startX, startY, targetX, targetY, apexY, endX, endY };
 }
 
@@ -145,6 +143,7 @@ export default function FruitCutterZone() {
   useEffect(() => {
     const nextLevel = Math.floor(score / LEVEL_UP_EVERY) + 1;
     if (nextLevel !== level) setLevel(nextLevel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [score]);
 
   useEffect(() => {
@@ -184,6 +183,12 @@ export default function FruitCutterZone() {
     }
   }, [highScore, playSound, gameover]);
 
+  const resetGame = useCallback(() => {
+    if (spawnRef.current) clearInterval(spawnRef.current);
+    setFruits([]);
+    setPhase("menu");
+  }, []);
+
   const loseLife = useCallback(() => {
     playSound(bomb);
     setLives((l) => {
@@ -193,7 +198,6 @@ export default function FruitCutterZone() {
     });
   }, [endGame, playSound, bomb]);
 
-  // Unified Zone Slash Trigger
   const triggerZoneSlash = useCallback(
     (zone) => {
       if (phase !== "playing") return;
@@ -244,7 +248,6 @@ export default function FruitCutterZone() {
       const emoji = isBomb
         ? "💣"
         : FRUIT_EMOJIS[Math.floor(Math.random() * FRUIT_EMOJIS.length)];
-
       const trajectory = getThrowTrajectory(
         targetZone,
         gridSize.width,
@@ -278,7 +281,6 @@ export default function FruitCutterZone() {
   const selectFocused = () => {
     if (phase === "menu") {
       if (focusedId === "start") return startGame();
-      if (focusedId === "back") return goToMenu();
     }
     if (phase === "gameOver") {
       if (focusedId === "play-again") return startGame();
@@ -289,7 +291,7 @@ export default function FruitCutterZone() {
   const moveMenuFocus = (dir) => {
     const map =
       phase === "menu"
-        ? { back: { down: "start" }, start: { up: "back" } }
+        ? { start: {} }
         : { "play-again": { right: "back" }, back: { left: "play-again" } };
     const next = map[focusedId]?.[dir];
     if (next) setFocusedId(next);
@@ -300,41 +302,22 @@ export default function FruitCutterZone() {
       if (dir === "BACK") {
         return phase === "menu" ? goToMenu() : resetGame();
       }
-      if (dir === "CENTER") if (phase !== "playing") selectFocused();
+      if (dir === "CENTER") {
+        if (phase !== "playing") selectFocused();
+        return;
+      }
       if (dir === "UP" || dir === "DOWN" || dir === "LEFT" || dir === "RIGHT") {
-        if (phase === "playing") triggerZoneSlash(ZONES[dir]);
-        else return moveMenuFocus(dir.toLowerCase());
+        if (phase === "playing") return triggerZoneSlash(ZONES[dir]);
+        return moveMenuFocus(dir.toLowerCase());
       }
     },
     autoNavigateBack: false,
   });
 
-  // Controller Navigation with Phase Check
-  // useControllerNavDirect({
-  //   onLeft: () => {
-  //     if (phase === "playing") triggerZoneSlash(ZONES.LEFT);
-  //     else moveMenuFocus("left");
-  //   },
-  //   onRight: () => {
-  //     if (phase === "playing") triggerZoneSlash(ZONES.RIGHT);
-  //     else moveMenuFocus("right");
-  //   },
-  //   onUp: () => {
-  //     if (phase === "playing") triggerZoneSlash(ZONES.UP);
-  //     else moveMenuFocus("up");
-  //   },
-  //   onDown: () => {
-  //     if (phase === "playing") triggerZoneSlash(ZONES.DOWN);
-  //     else moveMenuFocus("down");
-  //   },
-  //   onSelect: () => {
-  //     if (phase !== "playing") selectFocused();
-  //   },
-  // });
-
   if (phase === "menu") {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <HiddenGamepadListener>{GamepadListener}</HiddenGamepadListener>
         <View style={styles.centerFill}>
           <Animated.View
             entering={FadeIn.duration(400)}
@@ -353,24 +336,16 @@ export default function FruitCutterZone() {
               onFocusId={setFocusedId}
               onPress={startGame}
             />
-            <ActionButton
-              id="back"
-              label="Back to Menu"
-              variant="secondary"
-              fontScale={1}
-              isFocused={focusedId === "back"}
-              onFocusId={setFocusedId}
-              onPress={goToMenu}
-            />
           </Animated.View>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (phase === "gameOver") {
     return (
       <SafeAreaView style={styles.container}>
+        <HiddenGamepadListener>{GamepadListener}</HiddenGamepadListener>
         <View style={styles.centerFill}>
           <Animated.View
             entering={FadeIn.duration(350)}
@@ -422,16 +397,13 @@ export default function FruitCutterZone() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <HiddenGamepadListener>{GamepadListener}</HiddenGamepadListener>
+
       <View style={styles.hud}>
-        {/* <Pressable onPress={goToMenu} style={styles.backBtn}>
-          <Text style={styles.hudText}>← Exit</Text>
-        </Pressable> */}
         <Text style={styles.hudText}>Score: {score}</Text>
         <Text style={[styles.hudText, { color: "#facc15" }]}>Lv {level}</Text>
         <Text style={styles.hudText}>{"❤️".repeat(Math.max(0, lives))}</Text>
       </View>
-
-      {GamepadListener}
 
       {showLevelUp && (
         <Animated.View
@@ -490,6 +462,7 @@ export default function FruitCutterZone() {
               key={fruit.id}
               fruit={fruit}
               catchMs={catchMs}
+              loseLife={loseLife}
               onZoneUpdate={handleFruitZoneUpdate}
               onExit={handleFruitExit}
             />
@@ -499,7 +472,14 @@ export default function FruitCutterZone() {
   );
 }
 
-// Notice focusable={false} so Android TV doesn't capture focus over the D-Pad events
+function HiddenGamepadListener({ children }) {
+  return (
+    <View style={styles.hiddenGamepadWrapper} pointerEvents="none">
+      {children}
+    </View>
+  );
+}
+
 function Zone({ label, isActive, baseColor, style, onPress }) {
   const scale = useSharedValue(1);
   const glow = useSharedValue(0);
@@ -543,7 +523,7 @@ function Zone({ label, isActive, baseColor, style, onPress }) {
   );
 }
 
-function ZoneFruit({ fruit, catchMs, onZoneUpdate, onExit }) {
+function ZoneFruit({ fruit, catchMs, onZoneUpdate, onExit, loseLife }) {
   const { trajectory } = fruit;
   const translateX = useSharedValue(trajectory.startX);
   const translateY = useSharedValue(trajectory.startY);
@@ -557,21 +537,29 @@ function ZoneFruit({ fruit, catchMs, onZoneUpdate, onExit }) {
     (sliced) => {
       if (exitedRef.current) return;
       exitedRef.current = true;
+
+      if (!sliced && !fruit.isBomb) {
+        loseLife();
+      }
+
       scale.value = withTiming(sliced ? 1.4 : 0.6, { duration: 150 });
       opacity.value = withTiming(0, { duration: 150 }, (finished) => {
         if (finished) runOnJS(onExit)(fruit.id);
       });
     },
-    [fruit.id, onExit],
+    [fruit.id, fruit.isBomb, loseLife, onExit],
   );
 
   useEffect(() => {
+    const riseDuration = catchMs * 0.8;
+    const fallDuration = catchMs * 0.8;
+
     translateX.value = withTiming(
       trajectory.targetX,
-      { duration: catchMs * 0.8, easing: Easing.linear },
+      { duration: riseDuration, easing: Easing.linear },
       () => {
         translateX.value = withTiming(trajectory.endX, {
-          duration: catchMs * 0.8,
+          duration: fallDuration,
           easing: Easing.linear,
         });
       },
@@ -579,17 +567,13 @@ function ZoneFruit({ fruit, catchMs, onZoneUpdate, onExit }) {
 
     translateY.value = withTiming(
       trajectory.apexY,
-      { duration: catchMs * 0.8, easing: Easing.out(Easing.quad) },
+      { duration: riseDuration, easing: Easing.out(Easing.quad) },
       () => {
-        runOnJS(onZoneUpdate)(fruit.id, fruit.zone);
-
         translateY.value = withTiming(
           trajectory.endY,
-          { duration: catchMs * 0.8, easing: Easing.in(Easing.quad) },
+          { duration: fallDuration, easing: Easing.in(Easing.quad) },
           (finished) => {
-            if (finished) {
-              runOnJS(doExit)(false);
-            }
+            if (finished) runOnJS(doExit)(false);
           },
         );
       },
@@ -599,10 +583,27 @@ function ZoneFruit({ fruit, catchMs, onZoneUpdate, onExit }) {
       duration: catchMs * 1.6,
       easing: Easing.linear,
     });
+
+    const openTimer = setTimeout(() => {
+      if (!exitedRef.current) onZoneUpdate(fruit.id, fruit.zone);
+    }, riseDuration * 0.55);
+
+    const closeTimer = setTimeout(
+      () => {
+        if (!exitedRef.current) onZoneUpdate(fruit.id, null);
+      },
+      riseDuration + fallDuration * 0.45,
+    );
+
+    return () => {
+      clearTimeout(openTimer);
+      clearTimeout(closeTimer);
+    };
   }, []);
 
   useEffect(() => {
     if (fruit.sliced) doExit(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fruit.sliced]);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -621,6 +622,8 @@ function ZoneFruit({ fruit, catchMs, onZoneUpdate, onExit }) {
     </Animated.View>
   );
 }
+
+/* ─────────────────────────── Action button ─────────────────────────── */
 
 function ActionButton({
   id,
@@ -675,6 +678,15 @@ function ActionButton({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0b1220" },
+  hiddenGamepadWrapper: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 0,
+    height: 0,
+    opacity: 0,
+    zIndex: -1,
+  },
   centerFill: {
     flex: 1,
     alignItems: "center",
@@ -727,7 +739,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(30, 41, 59, 0.85)",
   },
   hudText: { color: "#F8FAFC", fontSize: 15, fontWeight: "800" },
-  backBtn: { paddingRight: 6 },
   levelUpBanner: {
     position: "absolute",
     top: "42%",

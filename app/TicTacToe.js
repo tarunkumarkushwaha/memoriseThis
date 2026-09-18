@@ -380,7 +380,7 @@ export default function TicTacToe() {
             <Text style={styles.startBtnText}>Start Game</Text>
           </Pressable>
 
-          <Pressable
+          {/* <Pressable
             focusable
             isTVSelectable
             onFocus={() => setMenuFocus("back")}
@@ -392,7 +392,7 @@ export default function TicTacToe() {
             ]}
           >
             <Text style={styles.menuText}>Back to Menu</Text>
-          </Pressable>
+          </Pressable> */}
         </Animated.View>
       </View>
     );

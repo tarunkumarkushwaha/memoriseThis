@@ -23,6 +23,7 @@ import Animated, {
   withTiming,
   FadeIn,
   FadeInDown,
+  interpolateColor,
 } from "react-native-reanimated";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
@@ -412,8 +413,8 @@ export default function LudoGame() {
     saveGameState(freshTokens, nextPlayerIdx);
   };
 
-  const resolveMove = (color, tokenIdx) => {
-    const roll = diceValue;
+  const resolveMove = (color, tokenIdx, roll) => {
+    // const roll = diceValue;
     const {
       tokens: nextTokens,
       captured,
@@ -438,9 +439,9 @@ export default function LudoGame() {
     advanceTurn(bonus, nextTokens);
   };
 
-  const doMoveOrAI = (color, tokenIdx) => {
+  const doMoveOrAI = (color, tokenIdx, roll) => {
     setPhase("moving");
-    setTimeout(() => resolveMove(color, tokenIdx), 300);
+    setTimeout(() => resolveMove(color, tokenIdx, roll), 300);
   };
 
   const rollDice = () => {
@@ -478,7 +479,7 @@ export default function LudoGame() {
       return;
     }
     if (moves.length === 1) {
-      doMoveOrAI(currentColor, moves[0]);
+      doMoveOrAI(currentColor, moves[0], roll);
       return;
     }
     setMovableTokens(moves);
@@ -509,8 +510,9 @@ export default function LudoGame() {
     }
     if (phase === "awaitingTokenSelect") {
       const t = setTimeout(() => {
-        const idx = pickAIMove(currentColor, diceValue, movableTokens);
-        doMoveOrAI(currentColor, idx);
+        const roll = diceValue;
+        const idx = pickAIMove(currentColor, roll, movableTokens);
+        doMoveOrAI(currentColor, idx, roll);
       }, 650);
       return () => clearTimeout(t);
     }
@@ -549,7 +551,7 @@ export default function LudoGame() {
     else if (focusedId === "play-again") startGame();
     else if (typeof focusedId === "string" && focusedId.startsWith("token-")) {
       const idx = Number(focusedId.split("-")[1]);
-      doMoveOrAI(currentColor, idx);
+      doMoveOrAI(currentColor, idx, diceValue);
     }
   };
 
@@ -692,11 +694,11 @@ export default function LudoGame() {
               },
             ]}
           >
-            <View style={styles.badge}>
+            {/* <View style={styles.badge}>
               <Text style={[styles.badgeText, { fontSize: 11 * fontScale }]}>
                 Play OTG SETUP
               </Text>
-            </View>
+            </View> */}
 
             <Text style={[styles.title, { fontSize: 24 * fontScale }]}>
               Ludo Customisation
@@ -754,17 +756,20 @@ export default function LudoGame() {
                   key={color}
                   style={[
                     styles.seatCard,
-                    { borderColor: TOKEN_COLORS[color] },
+                    {
+                      borderColor: TOKEN_COLORS[color],
+                      backgroundColor: TOKEN_COLORS[color],
+                    },
                   ]}
                 >
-                  <Text
+                  {/* <Text
                     style={[
                       styles.seatColorLabel,
                       { color: TOKEN_COLORS[color], fontSize: 12 * fontScale },
                     ]}
                   >
                     {color.toUpperCase()}
-                  </Text>
+                  </Text> */}
                   <PressableBtn
                     id={`seat-${idx}`}
                     label={playerTypes[idx] === "human" ? "Human" : "CPU"}
@@ -804,7 +809,7 @@ export default function LudoGame() {
                 onFocusId={setFocusedId}
                 onPress={startGame}
               />
-              <ActionButton
+              {/* <ActionButton
                 id="back"
                 label="Back to Menu"
                 variant="secondary"
@@ -812,7 +817,7 @@ export default function LudoGame() {
                 isFocused={focusedId === "back"}
                 onFocusId={setFocusedId}
                 onPress={goBackToMenu}
-              />
+              /> */}
             </View>
           </View>
         ) : (
@@ -866,7 +871,7 @@ export default function LudoGame() {
                           movableTokens.includes(idx) &&
                           phase === "awaitingTokenSelect"
                         ) {
-                          doMoveOrAI(color, idx);
+                          doMoveOrAI(color, idx, diceValue);
                         }
                       }}
                     />
@@ -1130,16 +1135,23 @@ function Token({
     elevation: isMovable || isFocused ? 10 : 3,
   }));
 
+  // const isFocused =
+  //   movableTokens.includes(idx) && phase === "awaitingTokenSelect";
+
   return (
     <Animated.View style={[styles.tokenWrapper, animatedStyle]}>
-      <Pressable onPress={onPress} style={styles.tokenPressable} hitSlop={10}>
+      <Pressable
+        focusable
+        isTVSelectable
+        onPress={onPress}
+        style={styles.tokenPressable}
+        hitSlop={10}
+      >
         <View
           style={[
             styles.token,
-            {
-              backgroundColor: TOKEN_COLORS[color],
-              borderColor: isFocused ? "#ffffff" : "rgba(255,255,255,0.85)",
-            },
+            { backgroundColor: PLAYER_COLORS[color], borderColor: "#ffffff" },
+            isFocused && styles.tokenFocused, 
           ]}
         >
           <View style={styles.tokenInnerDot} />
@@ -1180,7 +1192,11 @@ function DiceFace({ value, isFocused, isRolling, disabled, fontScale }) {
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotate.value}deg` }, { scale: scale.value }],
-    borderColor: focusAnim.value > 0.05 ? "#ffffff" : "rgba(255,255,255,0.2)",
+    borderColor: interpolateColor(
+      focusAnim.value,
+      [0, 1],
+      ["rgba(255,255,255,0.2)", "#ffffff"],
+    ),
     shadowOpacity: 0.3 + focusAnim.value * 0.5,
     shadowColor: "#ffffff",
     elevation: 4 + focusAnim.value * 8,
@@ -1395,7 +1411,8 @@ const styles = StyleSheet.create({
     padding: 10,
     alignItems: "center",
     gap: 6,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: "rgba(245, 158, 11, 0.25)",
+    borderColor: "#f59e0b",
   },
   seatColorLabel: { fontWeight: "800", letterSpacing: 0.5 },
   setupActionGroup: {
@@ -1419,7 +1436,7 @@ const styles = StyleSheet.create({
   turnBanner: {
     borderWidth: 2,
     borderRadius: 12,
-    height:60,
+    height: 60,
     paddingVertical: 6,
     paddingHorizontal: 16,
     backgroundColor: "rgba(255,255,255,0.05)",
@@ -1453,8 +1470,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 30,
-    flexWrap:"wrap",
+    flexWrap: "wrap",
     marginTop: 10,
+  },
+  tokenFocused: {
+    borderColor: "#facc15", // Bright flashy yellow border
+    borderWidth: 3,
+    backgroundColor: "rgba(250, 204, 21, 0.35)", // Flashy inner glow
+    transform: [{ scale: 1.15 }], // Pops out visually
+    shadowColor: "#facc15",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 10,
   },
   dice: {
     width: 56,

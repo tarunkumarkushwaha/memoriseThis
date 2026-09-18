@@ -176,9 +176,11 @@ export default function CracoTeethGame() {
         // resizeMode="cover"
       >
         <View style={styles.darkOverlay} />
-        <Text style={[styles.title, { fontSize: 24 * fontScale }]}>
-          Crocodile Dentist Game
-        </Text>
+        {!game && !lose && !win && (
+          <Text style={[styles.title, { fontSize: 24 * fontScale }]}>
+            Crocodile Dentist Game
+          </Text>
+        )}
 
         {!game && !lose && !win && (
           <Animated.View
@@ -213,7 +215,7 @@ export default function CracoTeethGame() {
         )}
 
         <View style={styles.mouthCard}>
-          {(game) ? (
+          {game ? (
             <Image
               source={require("../assets/images/mouthopen.png")}
               style={styles.mouthImage}
@@ -285,7 +287,7 @@ export default function CracoTeethGame() {
           onFocusId={setFocusedId}
           onPress={startGame}
         />
-        <ActionButton
+        {/* <ActionButton
           id="back"
           label="Back to Menu"
           variant="secondary"
@@ -293,7 +295,7 @@ export default function CracoTeethGame() {
           isFocused={focusedId === "back"}
           onFocusId={setFocusedId}
           onPress={goBackToMenu}
-        />
+        /> */}
       </ImageBackground>
     </>
   );
@@ -669,7 +671,7 @@ const styles = StyleSheet.create({
   statusLose: { color: "#ef4444" },
   statusWin: { color: "#facc15" },
   actionBtn: {
-    marginTop: 6,
+    marginTop: 20,
     paddingVertical: 12,
     paddingHorizontal: 26,
     borderRadius: 20,

@@ -188,12 +188,12 @@ export default function RockPaperScissors() {
             </Text>
           </View> */}
 
-          <Animated.Text
+          {/* <Animated.Text
             entering={FadeIn.duration(400)}
             style={[styles.title, { fontSize: 20 * fontScale }]}
           >
             Rock Paper Scissors
-          </Animated.Text>
+          </Animated.Text> */}
 
           <DifficultyToggle
             difficulty={difficulty}
@@ -302,7 +302,7 @@ export default function RockPaperScissors() {
               onFocusId={setFocusedId}
               onPress={resetGame}
             />
-            <FocusableButton
+            {/* <FocusableButton
               id="back"
               label="Back to Menu"
               variant="secondary"
@@ -310,7 +310,7 @@ export default function RockPaperScissors() {
               isFocused={focusedId === "back"}
               onFocusId={setFocusedId}
               onPress={goBackToMenu}
-            />
+            /> */}
           </View>
         </View>
       </ScrollView>
