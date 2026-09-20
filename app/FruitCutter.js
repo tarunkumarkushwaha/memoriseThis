@@ -46,32 +46,32 @@ function getZoneRect(zone, width, height) {
   switch (zone) {
     case ZONES.UP:
       return {
-        x0: width * 0.15,
-        x1: width * 0.85,
-        y0: height * 0.04,
-        y1: midTop - FRUIT_SIZE * 0.6,
+        x0: width * 0.2,
+        x1: width * 0.8,
+        y0: height * 0.05,
+        y1: midTop - FRUIT_SIZE,
       };
     case ZONES.DOWN:
       return {
-        x0: width * 0.15,
-        x1: width * 0.85,
-        y0: midBottom + FRUIT_SIZE * 0.2,
-        y1: height * 0.94 - FRUIT_SIZE,
+        x0: width * 0.2,
+        x1: width * 0.8,
+        y0: midBottom + 10,
+        y1: height * 0.9 - FRUIT_SIZE,
       };
     case ZONES.LEFT:
       return {
-        x0: width * 0.06,
-        x1: width * 0.42,
-        y0: midTop + 16,
-        y1: midBottom - FRUIT_SIZE - 16,
+        x0: width * 0.05,
+        x1: width * 0.45 - FRUIT_SIZE,
+        y0: midTop + 10,
+        y1: midBottom - FRUIT_SIZE - 10,
       };
     case ZONES.RIGHT:
     default:
       return {
-        x0: width * 0.58,
-        x1: width * 0.94 - FRUIT_SIZE,
-        y0: midTop + 16,
-        y1: midBottom - FRUIT_SIZE - 16,
+        x0: width * 0.55,
+        x1: width * 0.95 - FRUIT_SIZE,
+        y0: midTop + 10,
+        y1: midBottom - FRUIT_SIZE - 10,
       };
   }
 }
@@ -257,7 +257,7 @@ export default function FruitCutterZone() {
       setFruits((prev) => [
         ...prev,
         {
-          id: Date.now() + Math.random(),
+          id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
           emoji,
           isBomb,
           zone: targetZone,
@@ -316,7 +316,7 @@ export default function FruitCutterZone() {
 
   if (phase === "menu") {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <HiddenGamepadListener>{GamepadListener}</HiddenGamepadListener>
         <View style={styles.centerFill}>
           <Animated.View
@@ -338,7 +338,7 @@ export default function FruitCutterZone() {
             />
           </Animated.View>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -532,31 +532,37 @@ function ZoneFruit({ fruit, catchMs, onZoneUpdate, onExit, loseLife }) {
   const rotation = useSharedValue(0);
 
   const exitedRef = useRef(false);
+  const durationRef = useRef(catchMs);
 
   const doExit = useCallback(
     (sliced) => {
       if (exitedRef.current) return;
       exitedRef.current = true;
 
-      if (!sliced && !fruit.isBomb) {
-        loseLife();
-      }
+      // Deduct life ONLY if an unsliced fruit (not a bomb) drops offscreen
+      // if (!sliced && !fruit.isBomb) {
+      //   loseLife();
+      // }
 
       scale.value = withTiming(sliced ? 1.4 : 0.6, { duration: 150 });
       opacity.value = withTiming(0, { duration: 150 }, (finished) => {
         if (finished) runOnJS(onExit)(fruit.id);
       });
     },
-    [fruit.id, fruit.isBomb, loseLife, onExit],
+    [fruit.id, fruit.isBomb, loseLife, onExit, opacity, scale],
   );
 
   useEffect(() => {
-    const riseDuration = catchMs * 0.8;
-    const fallDuration = catchMs * 0.8;
+    const totalMs = catchMs * 1.6;
+    const riseDuration = totalMs * 0.5;
+    const fallDuration = totalMs * 0.5;
 
     translateX.value = withTiming(
       trajectory.targetX,
-      { duration: riseDuration, easing: Easing.linear },
+      {
+        duration: riseDuration,
+        easing: Easing.linear,
+      },
       () => {
         translateX.value = withTiming(trajectory.endX, {
           duration: fallDuration,
@@ -567,11 +573,17 @@ function ZoneFruit({ fruit, catchMs, onZoneUpdate, onExit, loseLife }) {
 
     translateY.value = withTiming(
       trajectory.apexY,
-      { duration: riseDuration, easing: Easing.out(Easing.quad) },
+      {
+        duration: riseDuration,
+        easing: Easing.out(Easing.quad),
+      },
       () => {
         translateY.value = withTiming(
           trajectory.endY,
-          { duration: fallDuration, easing: Easing.in(Easing.quad) },
+          {
+            duration: fallDuration,
+            easing: Easing.in(Easing.quad),
+          },
           (finished) => {
             if (finished) runOnJS(doExit)(false);
           },
@@ -580,20 +592,17 @@ function ZoneFruit({ fruit, catchMs, onZoneUpdate, onExit, loseLife }) {
     );
 
     rotation.value = withTiming(360, {
-      duration: catchMs * 1.6,
+      duration: totalMs,
       easing: Easing.linear,
     });
 
     const openTimer = setTimeout(() => {
       if (!exitedRef.current) onZoneUpdate(fruit.id, fruit.zone);
-    }, riseDuration * 0.55);
+    }, totalMs * 0.2);
 
-    const closeTimer = setTimeout(
-      () => {
-        if (!exitedRef.current) onZoneUpdate(fruit.id, null);
-      },
-      riseDuration + fallDuration * 0.45,
-    );
+    const closeTimer = setTimeout(() => {
+      if (!exitedRef.current) onZoneUpdate(fruit.id, null);
+    }, totalMs * 0.8);
 
     return () => {
       clearTimeout(openTimer);
@@ -602,9 +611,10 @@ function ZoneFruit({ fruit, catchMs, onZoneUpdate, onExit, loseLife }) {
   }, []);
 
   useEffect(() => {
-    if (fruit.sliced) doExit(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fruit.sliced]);
+    if (fruit.sliced) {
+      doExit(true);
+    }
+  }, [fruit.sliced, doExit]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -622,8 +632,6 @@ function ZoneFruit({ fruit, catchMs, onZoneUpdate, onExit, loseLife }) {
     </Animated.View>
   );
 }
-
-/* ─────────────────────────── Action button ─────────────────────────── */
 
 function ActionButton({
   id,
