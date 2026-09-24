@@ -34,6 +34,7 @@ true;
 
 export function useGamepadPress(onPress) {
   const [direction, setDirection] = useState(null);
+  const [keyindex, setKeyIndex] = useState(null);
   const clearTimer = useRef(null);
   const onPressRef = useRef(onPress);
   onPressRef.current = onPress;
@@ -46,7 +47,8 @@ export function useGamepadPress(onPress) {
       return;
     }
 
-    // console.log("Gamepad Button Index Pressed:", index);
+    console.log("Gamepad Button Index Pressed:", index);
+    setKeyIndex(index);
 
     const dir = BUTTON_MAP[index];
     if (!dir) return;
@@ -61,6 +63,7 @@ export function useGamepadPress(onPress) {
   const GamepadListener = (
     <WebView
       style={styles.hidden}
+      // style={styles.hiddenGamepadWrapper}
       originWhitelist={["*"]}
       source={{ html: "<html><body></body></html>" }}
       injectedJavaScript={POLL_SCRIPT}
@@ -68,9 +71,16 @@ export function useGamepadPress(onPress) {
     />
   );
 
-  return [direction, GamepadListener];
+  return [direction, GamepadListener, keyindex];
 }
 
 const styles = StyleSheet.create({
-  hidden: { width: 1, height: 1, opacity: 0 },
+  hidden: { width: 1, height: 1,  },
+  hiddenGamepadWrapper: {
+    position: "absolute",
+    width: 100,
+    height: 100,
+    top: -9999,
+    left: -9999,
+  },
 });

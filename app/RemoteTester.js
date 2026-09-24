@@ -1,6 +1,13 @@
 import React, { useState, useCallback } from "react";
 import { View, Text, StyleSheet } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming, interpolateColor } from "react-native-reanimated";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+  interpolateColor,
+} from "react-native-reanimated";
 import { useRemoteControl } from "../hooks/useRemoteControl";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -25,11 +32,11 @@ export default function RemoteTester() {
   const triggerVisualPulse = useCallback(() => {
     scale.value = withSequence(
       withSpring(1.15, { damping: 8, stiffness: 200 }),
-      withSpring(1, { damping: 10, stiffness: 180 })
+      withSpring(1, { damping: 10, stiffness: 180 }),
     );
     glow.value = withSequence(
       withTiming(1, { duration: 80 }),
-      withTiming(0, { duration: 300 })
+      withTiming(0, { duration: 300 }),
     );
   }, [scale, glow]);
 
@@ -57,14 +64,20 @@ export default function RemoteTester() {
     shadowRadius: 15,
   }));
 
+  function HiddenGamepadListener({ children }) {
+    return (
+      <View style={styles.hiddenGamepadWrapper} pointerEvents="none">
+        {children}
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
+      {/* <HiddenGamepadListener>{GamepadListener}</HiddenGamepadListener> */}
       {GamepadListener}
-
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>
-          KeyCode: {code ?? "null"}
-        </Text>
+        <Text style={styles.headerTitle}>KeyCode: {code ?? "null"}</Text>
         <Text style={styles.headerSubtitle}>
           Current Direction: {direction ?? "NONE"}
         </Text>
@@ -88,6 +101,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: 24,
+  },
+  hiddenGamepadWrapper: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 0,
+    height: 0,
+    opacity: 0,
+    zIndex: -1,
   },
   header: { alignItems: "center" },
   headerTitle: { color: "#f8fafc", fontSize: 24, fontWeight: "700" },

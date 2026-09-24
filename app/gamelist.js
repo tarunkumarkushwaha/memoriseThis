@@ -84,13 +84,13 @@ const games = [
     description: "Coming soon...",
     image: require("../assets/images/gamebox.png"),
   },
-  // {
-  //   id: "10",
-  //   name: "Remote Tester",
-  //   route: "RemoteTester",
-  //   description: "Remote Testing tool...",
-  //   image: require("../assets/images/gamebox.png"),
-  // },
+  {
+    id: "10",
+    name: "Remote Tester",
+    route: "RemoteTester",
+    description: "Remote Testing tool...",
+    image: require("../assets/images/gamebox.png"),
+  },
 ];
 
 const FOCUS_SPRING = { damping: 10, stiffness: 180, mass: 0.6 };

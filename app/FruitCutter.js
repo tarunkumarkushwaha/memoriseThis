@@ -27,6 +27,7 @@ import { useRemoteControl } from "../hooks/useRemoteControl";
 const ZONES = { UP: "UP", DOWN: "DOWN", LEFT: "LEFT", RIGHT: "RIGHT" };
 const ZONE_LIST = [ZONES.UP, ZONES.DOWN, ZONES.LEFT, ZONES.RIGHT];
 const FRUIT_EMOJIS = ["🍉", "🍎", "🍌", "🍊", "🍒", "🍍", "🍇", "🍋", "🍈"];
+const FRUIT_SALAD = "🔪 🥗";
 const FRUIT_SIZE = 60;
 
 const HIGH_SCORE_KEY = "fruitcutter_highscore";
@@ -105,6 +106,7 @@ export default function FruitCutterZone() {
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
   const [level, setLevel] = useState(1);
+  const [chances, setChances] = useState(20);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [fruits, setFruits] = useState([]);
   const [activeZoneSlash, setActiveZoneSlash] = useState(null);
@@ -193,6 +195,7 @@ export default function FruitCutterZone() {
     playSound(bomb);
     setLives((l) => {
       const next = Math.max(0, l - 1);
+      setChances(20);
       if (next === 0) setTimeout(() => endGame(), 250);
       return next;
     });
@@ -317,7 +320,6 @@ export default function FruitCutterZone() {
   if (phase === "menu") {
     return (
       <SafeAreaView style={styles.container}>
-        <HiddenGamepadListener>{GamepadListener}</HiddenGamepadListener>
         <View style={styles.centerFill}>
           <Animated.View
             entering={FadeIn.duration(400)}
@@ -338,6 +340,7 @@ export default function FruitCutterZone() {
             />
           </Animated.View>
         </View>
+        {GamepadListener}
       </SafeAreaView>
     );
   }
@@ -345,7 +348,6 @@ export default function FruitCutterZone() {
   if (phase === "gameOver") {
     return (
       <SafeAreaView style={styles.container}>
-        <HiddenGamepadListener>{GamepadListener}</HiddenGamepadListener>
         <View style={styles.centerFill}>
           <Animated.View
             entering={FadeIn.duration(350)}
@@ -391,17 +393,20 @@ export default function FruitCutterZone() {
             </View>
           </Animated.View>
         </View>
+        {GamepadListener}
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <HiddenGamepadListener>{GamepadListener}</HiddenGamepadListener>
-
+      {GamepadListener}
       <View style={styles.hud}>
         <Text style={styles.hudText}>Score: {score}</Text>
         <Text style={[styles.hudText, { color: "#facc15" }]}>Lv {level}</Text>
+        <Text style={[styles.hudText, { color: "#facc15" }]}>
+          Throw: {chances}
+        </Text>
         <Text style={styles.hudText}>{"❤️".repeat(Math.max(0, lives))}</Text>
       </View>
 
@@ -460,6 +465,8 @@ export default function FruitCutterZone() {
           fruits.map((fruit) => (
             <ZoneFruit
               key={fruit.id}
+              chances={chances}
+              setChances={setChances}
               fruit={fruit}
               catchMs={catchMs}
               loseLife={loseLife}
@@ -473,11 +480,7 @@ export default function FruitCutterZone() {
 }
 
 function HiddenGamepadListener({ children }) {
-  return (
-    <View style={styles.hiddenGamepadWrapper} pointerEvents="none">
-      {children}
-    </View>
-  );
+  return <View style={styles.hiddenGamepadWrapper}>{children}</View>;
 }
 
 function Zone({ label, isActive, baseColor, style, onPress }) {
@@ -523,7 +526,15 @@ function Zone({ label, isActive, baseColor, style, onPress }) {
   );
 }
 
-function ZoneFruit({ fruit, catchMs, onZoneUpdate, onExit, loseLife }) {
+function ZoneFruit({
+  fruit,
+  catchMs,
+  onZoneUpdate,
+  onExit,
+  loseLife,
+  chances,
+  setChances,
+}) {
   const { trajectory } = fruit;
   const translateX = useSharedValue(trajectory.startX);
   const translateY = useSharedValue(trajectory.startY);
@@ -540,9 +551,10 @@ function ZoneFruit({ fruit, catchMs, onZoneUpdate, onExit, loseLife }) {
       exitedRef.current = true;
 
       // Deduct life ONLY if an unsliced fruit (not a bomb) drops offscreen
-      // if (!sliced && !fruit.isBomb) {
-      //   loseLife();
-      // }
+      if (!sliced && !fruit.isBomb) {
+        setChances((prev) => prev - 1);
+        // loseLife();
+      }
 
       scale.value = withTiming(sliced ? 1.4 : 0.6, { duration: 150 });
       opacity.value = withTiming(0, { duration: 150 }, (finished) => {
@@ -604,6 +616,13 @@ function ZoneFruit({ fruit, catchMs, onZoneUpdate, onExit, loseLife }) {
       if (!exitedRef.current) onZoneUpdate(fruit.id, null);
     }, totalMs * 0.8);
 
+    // console.log("chances", chances);
+
+    if (chances === 0) {
+      // console.log("lose", chances);
+      loseLife();
+    }
+
     return () => {
       clearTimeout(openTimer);
       clearTimeout(closeTimer);
@@ -628,7 +647,9 @@ function ZoneFruit({ fruit, catchMs, onZoneUpdate, onExit, loseLife }) {
 
   return (
     <Animated.View style={[styles.fruit, animatedStyle]} pointerEvents="none">
-      <Text style={styles.fruitEmoji}>{fruit.sliced ? "💥" : fruit.emoji}</Text>
+      <Text style={styles.fruitEmoji}>
+        {fruit.sliced ? (fruit.isBomb ? "💥" : FRUIT_SALAD) : fruit.emoji}
+      </Text>
     </Animated.View>
   );
 }
@@ -700,6 +721,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 20,
+    marginTop: 150,
   },
   menuCard: {
     alignItems: "center",
@@ -744,6 +766,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 10,
+    marginTop: 150,
     backgroundColor: "rgba(30, 41, 59, 0.85)",
   },
   hudText: { color: "#F8FAFC", fontSize: 15, fontWeight: "800" },
@@ -760,7 +783,7 @@ const styles = StyleSheet.create({
     zIndex: 30,
   },
   levelUpText: { color: "#facc15", fontWeight: "900", letterSpacing: 1 },
-  gridContainer: { flex: 1, position: "relative" },
+  gridContainer: { flex: 1, position: "relative", marginBottom: 0 },
   zone: {
     flex: 1,
     justifyContent: "center",

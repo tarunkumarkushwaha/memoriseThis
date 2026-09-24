@@ -101,6 +101,7 @@ const GLOBAL_PATH = [
 ];
 
 const ALL_COLORS = ["red", "green", "yellow", "blue"];
+const PLAYER_COLORS = ["red", "green", "yellow", "blue"];
 const START_INDEX = { red: 1, green: 14, yellow: 27, blue: 40 };
 const HOME_COLUMN = {
   red: [
@@ -1138,6 +1139,8 @@ function Token({
   // const isFocused =
   //   movableTokens.includes(idx) && phase === "awaitingTokenSelect";
 
+  // console.log(PLAYER_COLORS[color],"color",color)
+
   return (
     <Animated.View style={[styles.tokenWrapper, animatedStyle]}>
       <Pressable
@@ -1150,8 +1153,8 @@ function Token({
         <View
           style={[
             styles.token,
-            { backgroundColor: PLAYER_COLORS[color], borderColor: "#ffffff" },
-            isFocused && styles.tokenFocused, 
+            { backgroundColor: color, borderColor: "#ffffff" },
+            isFocused && styles.tokenFocused,
           ]}
         >
           <View style={styles.tokenInnerDot} />

@@ -34,6 +34,7 @@ import { useRemoteControl } from "../hooks/useRemoteControl";
 const FOCUS_SPRING = { damping: 10, stiffness: 180, mass: 0.6 };
 const BOUNCE_SPRING = { damping: 8, stiffness: 220, mass: 0.5 };
 const HIGH_SCORE_KEY = "whacamole_highscore";
+const Hammer = "🔨";
 
 const SPEEDS = [
   { id: "dumb", label: "Dumb", speed: 1800 },
@@ -555,23 +556,13 @@ export default function WhacAMole() {
 
   return (
     <View style={styles.container}>
-      <HiddenGamepadListener>{GamepadListener}</HiddenGamepadListener>
-      <View style={styles.hud}>
-        <Stat label="Score" value={score} fontScale={fontScale} />
-        <Stat
-          label="Level"
-          value={level}
-          fontScale={fontScale}
-          accent="#facc15"
-        />
-        <Stat
-          label="Lives"
-          value={"❤️".repeat(lives)}
-          fontScale={fontScale}
-          isEmoji
-        />
-        <Stat label="Time" value={`${timeLeft}s`} fontScale={fontScale} />
-      </View>
+      {/* <HiddenGamepadListener>{GamepadListener}</HiddenGamepadListener> */}
+
+      <Text style={[styles.tip, { fontSize: 13 * fontScale }]}>
+        {selectedLayout.isCross
+          ? "Use D-pad to whack directly"
+          : "Use D-pad to move • OK to Whack"}
+      </Text>
 
       {showLevelUp && (
         <Animated.View
@@ -647,11 +638,24 @@ export default function WhacAMole() {
         </Animated.View>
       )}
 
-      <Text style={[styles.tip, { fontSize: 13 * fontScale }]}>
-        {selectedLayout.isCross
-          ? "Use D-pad to whack directly"
-          : "Use D-pad to move • OK to Whack"}
-      </Text>
+      <View style={styles.hud}>
+        <Stat label="Score" value={score} fontScale={fontScale} />
+        <Stat
+          label="Level"
+          value={level}
+          fontScale={fontScale}
+          accent="#facc15"
+        />
+        <Stat
+          label="Lives"
+          value={"❤️".repeat(lives)}
+          fontScale={fontScale}
+          isEmoji
+        />
+        <Stat label="Time" value={`${timeLeft}s`} fontScale={fontScale} />
+      </View>
+
+      {GamepadListener}
     </View>
   );
 }
@@ -947,7 +951,7 @@ const styles = StyleSheet.create({
   },
   tip: {
     color: "#94a3b8",
-    marginTop: 6,
+    marginTop: 100,
   },
   gameOverCard: {
     alignItems: "center",

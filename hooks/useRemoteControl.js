@@ -5,7 +5,7 @@ import { useGamepadPress } from "./useGamepadPress";
 
 /**
  * Custom hook to manage TV remote & Gamepad button inputs + back navigation.
- * 
+ *
  * @param {Object} options
  * @param {Function} [options.onPress] Optional callback fired on any valid button press: (direction, code) => void
  * @param {boolean} [options.autoNavigateBack=true] Automatically navigate back if BACK button is pressed
@@ -36,19 +36,22 @@ export function useRemoteControl({ onPress, autoNavigateBack = true } = {}) {
       // 4. Trigger custom consumer callback
       onPress?.(direction, code);
     },
-    [router, autoNavigateBack, onPress]
+    [router, autoNavigateBack, onPress],
   );
 
   // Bind D-pad & Gamepad to unified handler
   const [remoteDirection, remoteKeycode] = useDpadPress(handlePress);
-  const [gamepadDirection, GamepadListener] = useGamepadPress(handlePress);
+  const [gamepadDirection, GamepadListener, keyindex] =
+    useGamepadPress(handlePress);
 
-  const activeDirection = gamepadDirection ?? remoteDirection ?? lastInput.direction;
+  const activeDirection =
+    gamepadDirection ?? remoteDirection ?? lastInput.direction;
   const activeCode = remoteKeycode ?? lastInput.code;
 
   return {
     direction: activeDirection,
-    code: activeCode,
+    // code: activeCode,
+    code: keyindex,
     GamepadListener,
   };
 }
